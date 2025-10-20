@@ -1,0 +1,12 @@
+node_modules/
+pnpm-lock.yaml
+yarn.lock
+playwright-report/
+test-results/
+.pnpm-store/
+.yarn/
+dist/
+build/
+tmp/
+*.log
+.DS_Store

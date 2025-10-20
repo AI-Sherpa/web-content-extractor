@@ -1,0 +1,16 @@
+services:
+  extractor-ui:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.web
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+
+  playwright-extractor:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    ports:
+      - "3050:3050"
+    restart: unless-stopped

@@ -1,0 +1,1579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Content Extractor for LLM Processing</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        h1 {
+            text-align: center;
+            color: #4a5568;
+            margin-bottom: 10px;
+            font-size: 2.5rem;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #718096;
+            margin-bottom: 30px;
+            font-size: 1.1rem;
+        }
+
+        .input-section {
+            background: #f7fafc;
+            padding: 25px;
+            border-radius: 15px;
+            margin-bottom: 25px;
+            border: 2px solid #e2e8f0;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            align-items: stretch;
+        }
+
+        .url-input {
+            flex: 1;
+            padding: 15px;
+            border: 2px solid #cbd5e0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .url-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .process-button {
+            padding: 15px 30px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 150px;
+        }
+
+        .process-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .process-button:disabled {
+            background: #cbd5e0;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .options {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .option-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .option-group label {
+            font-weight: 500;
+            color: #4a5568;
+        }
+
+        .option-group input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            accent-color: #667eea;
+        }
+
+        .option-group input[type="number"] {
+            width: 80px;
+            padding: 8px;
+            border: 2px solid #cbd5e0;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .option-group input[type="url"] {
+            flex: 1;
+            min-width: 200px;
+            padding: 10px;
+            border: 2px solid #cbd5e0;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .option-group.option-group-wide {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .option-group.option-group-wide input[type="url"] {
+            width: 100%;
+        }
+
+        .progress-section {
+            display: none;
+            background: #f7fafc;
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 25px;
+            border: 2px solid #e2e8f0;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #e2e8f0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #48bb78, #38a169);
+            width: 0%;
+            transition: width 0.3s ease;
+            border-radius: 10px;
+        }
+
+        .status-text {
+            text-align: center;
+            color: #4a5568;
+            font-weight: 500;
+        }
+
+        .results-section {
+            display: none;
+            background: #f7fafc;
+            padding: 25px;
+            border-radius: 15px;
+            border: 2px solid #e2e8f0;
+        }
+
+        .results-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        .tab-button {
+            padding: 12px 20px;
+            background: none;
+            border: none;
+            border-bottom: 3px solid transparent;
+            color: #718096;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .tab-button.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+
+        .tab-content {
+            display: none;
+            padding: 20px 0;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .content-preview {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            border: 1px solid #e2e8f0;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .download-section {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        .download-button {
+            padding: 12px 25px;
+            background: linear-gradient(135deg, #48bb78, #38a169);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .download-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(72, 187, 120, 0.4);
+        }
+
+        .copy-button {
+            padding: 12px 25px;
+            background: linear-gradient(135deg, #4299e1, #3182ce);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .copy-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(66, 153, 225, 0.4);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            border: 1px solid #e2e8f0;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            color: #718096;
+            font-size: 0.9rem;
+        }
+
+        .error-message {
+            background: #fed7d7;
+            color: #c53030;
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid #fc8181;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .success-message {
+            background: #c6f6d5;
+            color: #276749;
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid #9ae6b4;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .warning-message {
+            background: #fef5e7;
+            color: #d69e2e;
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid #fbd38d;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .extraction-method {
+            background: #e6fffa;
+            color: #0077b6;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #81e6d9;
+            margin-bottom: 20px;
+            display: none;
+            font-size: 14px;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+            }
+            
+            .input-group {
+                flex-direction: column;
+            }
+            
+            .options {
+                grid-template-columns: 1fr;
+            }
+            
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌐 Web Content Extractor</h1>
+        <p class="subtitle">Parse web pages and extract content for LLM processing</p>
+
+        <div class="error-message" id="errorMessage"></div>
+        <div class="warning-message" id="warningMessage"></div>
+        <div class="success-message" id="successMessage"></div>
+        <div class="extraction-method" id="extractionMethod"></div>
+
+        <div class="input-section">
+            <div class="input-group">
+                <input 
+                    type="url" 
+                    class="url-input" 
+                    id="urlInput" 
+                    placeholder="Enter URL to extract content from..."
+                    value=""
+                >
+                <button class="process-button" id="processButton" onclick="processUrl()">
+                    Extract Content
+                </button>
+            </div>
+
+        <div class="options">
+                <div class="option-group">
+                    <input type="checkbox" id="includeImages" checked>
+                    <label for="includeImages">Include Image Alt Text</label>
+                </div>
+                <div class="option-group">
+                    <input type="checkbox" id="includeLinks" checked>
+                    <label for="includeLinks">Include Link Text</label>
+                </div>
+                <div class="option-group">
+                    <input type="checkbox" id="includeMetadata" checked>
+                    <label for="includeMetadata">Include Page Metadata</label>
+                </div>
+                <div class="option-group">
+                    <input type="checkbox" id="expandDynamic" checked>
+                    <label for="expandDynamic">Expand Dynamic Content</label>
+                </div>
+                <div class="option-group">
+                    <input type="checkbox" id="cleanContent" checked>
+                    <label for="cleanContent">Clean & Format Content</label>
+                </div>
+                <div class="option-group">
+                    <input type="checkbox" id="useBrowser" checked>
+                    <label for="useBrowser">Use Real Browser (Playwright)</label>
+                </div>
+                <div class="option-group">
+                    <label for="waitTime">Wait Time (ms):</label>
+                    <input type="number" id="waitTime" value="3000" min="1000" max="10000" step="500">
+                </div>
+                <div class="option-group option-group-wide">
+                    <label for="playwrightServer">Playwright Server URL:</label>
+                    <input type="url" id="playwrightServer" value="http://localhost:3050" placeholder="http://localhost:3050">
+                </div>
+            </div>
+        </div>
+
+        <div class="progress-section" id="progressSection">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div class="status-text" id="statusText">Initializing...</div>
+        </div>
+
+        <div class="results-section" id="resultsSection">
+            <div class="stats-grid" id="statsGrid">
+                <!-- Stats will be populated here -->
+            </div>
+
+            <div class="results-tabs">
+                <button class="tab-button active" onclick="switchTab(this, 'extracted')">Extracted Content</button>
+                <button class="tab-button" onclick="switchTab(this, 'structured')">Structured Data</button>
+                <button class="tab-button" onclick="switchTab(this, 'markdown')">Markdown</button>
+                <button class="tab-button" onclick="switchTab(this, 'json')">JSON</button>
+            </div>
+
+            <div class="tab-content active" id="extracted-tab">
+                <div class="content-preview" id="extractedContent"></div>
+            </div>
+
+            <div class="tab-content" id="structured-tab">
+                <div class="content-preview" id="structuredContent"></div>
+            </div>
+
+            <div class="tab-content" id="markdown-tab">
+                <div class="content-preview" id="markdownContent"></div>
+            </div>
+
+            <div class="tab-content" id="json-tab">
+                <div class="content-preview" id="jsonContent"></div>
+            </div>
+
+            <div class="download-section">
+                <button class="copy-button" onclick="copyMainContent()">
+                    📋 Copy Main Content
+                </button>
+                <button class="download-button" onclick="copyContent('txt')">
+                    📄 Copy Text
+                </button>
+                <button class="download-button" onclick="copyContent('md')">
+                    📝 Copy Markdown
+                </button>
+                <button class="download-button" onclick="copyContent('json')">
+                    📊 Copy JSON
+                </button>
+                <button class="download-button" onclick="copyContent('html')">
+                    🌐 Copy HTML
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let extractedData = null;
+        let currentTab = 'extracted';
+        const PLAYWRIGHT_STORAGE_KEY = 'playwrightServerUrl';
+
+        // Initialize with example URL
+        document.getElementById('urlInput').value = 'https://example.com';
+
+        // Restore saved Playwright server URL if available
+        (function restorePlaywrightServerSetting() {
+            const input = document.getElementById('playwrightServer');
+            if (!input) return;
+            try {
+                const saved = localStorage.getItem(PLAYWRIGHT_STORAGE_KEY);
+                if (saved) {
+                    input.value = saved;
+                }
+            } catch (storageError) {
+                console.warn('Unable to access localStorage for Playwright server URL:', storageError);
+            }
+            input.addEventListener('change', () => {
+                try {
+                    localStorage.setItem(PLAYWRIGHT_STORAGE_KEY, input.value.trim());
+                } catch (storageError) {
+                    console.warn('Unable to persist Playwright server URL:', storageError);
+                }
+            });
+        })();
+
+        async function processUrl() {
+            const url = document.getElementById('urlInput').value.trim();
+            
+            if (!url) {
+                showError('Please enter a valid URL');
+                return;
+            }
+
+            if (!isValidUrl(url)) {
+                showError('Please enter a valid URL format');
+                return;
+            }
+
+            hideMessages();
+            showProgress();
+            setProgress(0, 'Initializing extraction...');
+            
+            try {
+                // Use CORS proxy or server-side extraction
+                const content = await extractContent(url);
+                extractedData = content;
+                
+                setProgress(100, 'Extraction complete!');
+                
+                setTimeout(() => {
+                    hideProgress();
+                    showResults();
+                    showSuccess('Content extracted successfully!');
+                }, 1000);
+                
+            } catch (error) {
+                setProgress(0, 'Error occurred');
+                hideProgress();
+                showError(`Failed to extract content: ${error.message}`);
+            }
+        }
+
+        async function extractContent(url) {
+            setProgress(20, 'Fetching page content...');
+            
+            let html = '';
+            
+            try {
+                // Try multiple methods to get content
+                html = await tryMultipleExtractionMethods(url);
+            } catch (error) {
+                throw new Error(`Failed to extract content: ${error.message}`);
+            }
+            
+            setProgress(40, 'Parsing HTML structure...');
+            
+            // Parse HTML
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            
+            setProgress(60, 'Extracting content...');
+            
+            // Check for JavaScript-required pages
+            if (isJavaScriptRequired(doc)) {
+                const useBrowser = document.getElementById('useBrowser').checked;
+                setProgress(65, 'JavaScript detected, evaluating browser rendering...');
+                
+                if (useBrowser) {
+                    try {
+                        const browserHtml = await extractWithPlaywright(url);
+                        if (browserHtml) {
+                            const browserDoc = parser.parseFromString(browserHtml, 'text/html');
+                            return processExtractedContent(url, browserDoc, 'playwright');
+                        }
+                    } catch (browserError) {
+                        console.warn('Playwright extraction failed:', browserError);
+                        showWarning(`Playwright extraction failed: ${browserError.message}`);
+                    }
+                }
+                
+                // Try alternative methods for JS-heavy pages
+                setProgress(70, 'Trying alternative text-only sources...');
+                
+                try {
+                    html = await tryTextExtractionServices(url);
+                    if (html) {
+                        const altDoc = parser.parseFromString(html, 'text/html');
+                        return processExtractedContent(url, altDoc, useBrowser ? 'playwright-fallback' : 'alternative');
+                    }
+                } catch (textError) {
+                    console.warn('Text extraction services failed:', textError);
+                }
+                
+                // Try to get cached version from Wayback Machine
+                try {
+                    html = await tryWaybackMachine(url);
+                    if (html) {
+                        const waybackDoc = parser.parseFromString(html, 'text/html');
+                        return processExtractedContent(url, waybackDoc, 'cached');
+                    }
+                } catch (waybackError) {
+                    console.warn('Wayback Machine failed:', waybackError);
+                }
+                
+                throw new Error('This page requires JavaScript to load content. The tool tried browser automation and alternative extraction methods but could not retrieve complete content. Suggestions:\n\n1. Ensure the Playwright server is running and try again\n2. Enable JavaScript in your browser and retry manually\n3. Use browser automation tools like Selenium or Puppeteer\n4. Copy content directly from the page in your browser');
+            }
+            
+            return processExtractedContent(url, doc);
+        }
+
+        async function tryMultipleExtractionMethods(url) {
+            let html = '';
+            const sanitizedUrl = url.trim();
+            const strippedUrl = sanitizedUrl.replace(/^https?:\/\//, '');
+            const hasWwwPrefix = strippedUrl.startsWith('www.');
+            
+            // Method 1: Try CORS proxy (primary method)
+            try {
+                const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(sanitizedUrl)}`;
+                const response = await fetch(proxyUrl);
+                if (response.ok) {
+                    html = await response.text();
+                    if (html && html.length > 100) { // Reasonable content length
+                        return html;
+                    }
+                }
+            } catch (proxyError) {
+                console.warn('CORS proxy failed:', proxyError);
+            }
+            
+            // Method 2: Try text-only mirror via r.jina.ai (http)
+            try {
+                const textiseUrl = `https://r.jina.ai/http://${strippedUrl}`;
+                const response = await fetch(textiseUrl);
+                if (response.ok) {
+                    html = await response.text();
+                    if (html && html.length > 100) {
+                        return html;
+                    }
+                }
+            } catch (textiseError) {
+                console.warn('Textise service failed:', textiseError);
+            }
+            
+            // Method 3: Try with www prefix if missing
+            if (!hasWwwPrefix) {
+                try {
+                    const textiseAltUrl = `https://r.jina.ai/http://www.${strippedUrl}`;
+                    const response = await fetch(textiseAltUrl);
+                    if (response.ok) {
+                        html = await response.text();
+                        if (html && html.length > 100) {
+                            return html;
+                        }
+                    }
+                } catch (textiseAltError) {
+                    console.warn('Alternative textise service failed:', textiseAltError);
+                }
+            }
+            
+            // Method 4: Try forcing https upstream
+            try {
+                const textiseHttpsUrl = `https://r.jina.ai/http://https://${strippedUrl}`;
+                const response = await fetch(textiseHttpsUrl);
+                if (response.ok) {
+                    html = await response.text();
+                    if (html && html.length > 100) {
+                        return html;
+                    }
+                }
+            } catch (textiseHttpsError) {
+                console.warn('HTTPS textise service failed:', textiseHttpsError);
+            }
+            
+            throw new Error('All extraction methods failed. The page may be blocking access or require JavaScript.');
+        }
+
+        async function tryTextExtractionServices(url) {
+            const sanitizedUrl = url.trim();
+            const strippedUrl = sanitizedUrl.replace(/^https?:\/\//, '');
+            const services = [
+                `https://r.jina.ai/http://${strippedUrl}`,
+                `https://r.jina.ai/http://https://${strippedUrl}`
+            ];
+            
+            if (!strippedUrl.startsWith('www.')) {
+                services.push(`https://r.jina.ai/http://www.${strippedUrl}`);
+            }
+            
+            for (const serviceUrl of services) {
+                try {
+                    const response = await fetch(serviceUrl);
+                    if (response.ok) {
+                        const html = await response.text();
+                        if (html && html.length > 100 && !html.includes('JavaScript is disabled')) {
+                            return html;
+                        }
+                    }
+                } catch (error) {
+                    console.warn(`Service ${serviceUrl} failed:`, error);
+                }
+            }
+            
+            return null;
+        }
+
+        async function tryWaybackMachine(url) {
+            try {
+                const waybackUrl = `https://webcache.googleusercontent.com/search?q=cache:${url}`;
+                const response = await fetch(waybackUrl);
+                if (response.ok) {
+                    const html = await response.text();
+                    if (html && html.length > 100 && !html.includes('JavaScript is disabled')) {
+                        return html;
+                    }
+                }
+            } catch (error) {
+                console.warn('Wayback Machine failed:', error);
+            }
+            
+            return null;
+        }
+
+        function isJavaScriptRequired(doc) {
+            const bodyText = (doc.body?.textContent || '').toLowerCase();
+            const titleText = (doc.title || '').toLowerCase();
+            
+            // Check for common JavaScript-disabled messages
+            const jsDisabledPatterns = [
+                'javascript is disabled',
+                'javascript is required',
+                'enable javascript',
+                'please enable javascript',
+                'this site requires javascript',
+                'verification required',
+                'not a robot',
+                'cloudflare',
+                'checking your browser',
+                'enable javascript and reload'
+            ];
+            
+            // Check if page contains JavaScript-disabled messages
+            for (const pattern of jsDisabledPatterns) {
+                if (bodyText.includes(pattern) || titleText.includes(pattern)) {
+                    return true;
+                }
+            }
+            
+            // Check if page is mostly empty (likely requires JS)
+            const textLength = bodyText.length;
+            const elementCount = doc.querySelectorAll('*').length;
+            
+            if (textLength < 50 && elementCount < 10) {
+                return true;
+            }
+            
+            // Check for common JS-required indicators
+            const jsIndicators = [
+                doc.querySelector('[data-require-js]'),
+                doc.querySelector('.js-required'),
+                doc.querySelector('#noscript'),
+                doc.querySelector('meta[name="generator"][content*="javascript"]'),
+                doc.querySelector('script[src*="app"]'),
+                doc.querySelector('script[src*="bundle"]')
+            ];
+            
+            return jsIndicators.some(indicator => indicator !== null);
+        }
+
+        function processExtractedContent(url, doc, extractionMethod = 'direct') {
+            // Wait for dynamic content simulation
+            const waitTime = parseInt(document.getElementById('waitTime').value);
+            setProgress(70, 'Processing content...');
+            
+            // Simulate waiting for dynamic content
+            return new Promise(resolve => {
+                setTimeout(() => {
+                    setProgress(80, 'Formatting for LLM...');
+                    
+                    // Extract content
+                    const content = {
+                        url: url,
+                        timestamp: new Date().toISOString(),
+                        metadata: extractMetadata(doc),
+                        content: extractMainContent(doc),
+                        links: extractLinks(doc),
+                        images: extractImages(doc),
+                        structure: extractStructure(doc),
+                        extractionMethod: extractionMethod
+                    };
+                    
+                    resolve(content);
+                }, Math.min(waitTime, 2000)); // Cap wait time for alternative methods
+            });
+        }
+
+        function getPlaywrightEndpoint() {
+            const input = document.getElementById('playwrightServer');
+            let baseUrl = (input?.value || '').trim();
+            if (!baseUrl) {
+                baseUrl = 'http://localhost:3050';
+            }
+            try {
+                const normalized = new URL(baseUrl);
+                let path = normalized.pathname || '';
+                if (path === '/') {
+                    path = '';
+                } else {
+                    path = path.replace(/\/+$/, '');
+                }
+                return `${normalized.origin}${path}/extract-with-playwright`;
+            } catch (error) {
+                throw new Error('Invalid Playwright server URL. Please provide a valid address (e.g., http://localhost:3050).');
+            }
+        }
+
+        async function extractWithPlaywright(url) {
+            try {
+                setProgress(35, 'Starting Playwright browser...');
+                
+                const endpoint = getPlaywrightEndpoint();
+                
+                // Use Playwright to launch real Chrome browser
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    mode: 'cors',
+                    credentials: 'omit',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        url: url,
+                        waitTime: parseInt(document.getElementById('waitTime').value),
+                        options: {
+                            includeImages: document.getElementById('includeImages').checked,
+                            includeLinks: document.getElementById('includeLinks').checked,
+                            includeMetadata: document.getElementById('includeMetadata').checked,
+                            cleanContent: document.getElementById('cleanContent').checked
+                        }
+                    })
+                });
+                
+                if (!response.ok) {
+                    if ([404, 405].includes(response.status)) {
+                        showPlaywrightInstructions(`The Playwright helper server responded with status ${response.status}. Confirm it is running at ${endpoint} and accepts POST requests.`);
+                        const statusText = response.status === 405 ? 'Method Not Allowed' : 'Not Found';
+                        throw new Error(`Playwright helper server returned ${response.status} (${statusText}).`);
+                    }
+                    throw new Error(`Playwright server error: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    setProgress(65, 'Browser extraction successful...');
+                    return result.html;
+                } else {
+                    throw new Error(result.error || 'Playwright extraction failed');
+                }
+                
+            } catch (error) {
+                // If Playwright server is not available, show instructions
+                if (error.message.includes('Failed to fetch') || error.message.includes('Invalid Playwright server URL')) {
+                    showPlaywrightInstructions(error.message);
+                    throw new Error('Playwright server not reachable. See instructions below to set up browser automation.');
+                }
+                throw error;
+            }
+        }
+
+        function showPlaywrightInstructions(detailsMessage) {
+            const endpoint = (() => {
+                try {
+                    return getPlaywrightEndpoint();
+                } catch {
+                    return 'http://localhost:3050/extract-with-playwright';
+                }
+            })();
+            const baseForInput = endpoint.replace(/\/extract-with-playwright$/, '');
+
+            const serverSnippet = `
+const { chromium } = require('playwright');
+const express = require('express');
+const app = express();
+
+// Allow browser UI fetches from file:// origins
+app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type');
+    if (req.method === 'OPTIONS') {
+        return res.sendStatus(200);
+    }
+    next();
+});
+
+app.use(express.json());
+
+app.post('/extract-with-playwright', async (req, res) => {
+    try {
+        const { url, waitTime } = req.body;
+        const effectiveWait = Number.isFinite(waitTime) ? waitTime : 3000;
+        const navigationTimeout = Math.max(effectiveWait + 10000, 45000);
+        
+        const browser = await chromium.launch({
+            headless: true,
+            args: ['--no-sandbox', '--disable-setuid-sandbox']
+        });
+        const context = await browser.newContext({
+            userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        });
+        const page = await context.newPage();
+        page.setDefaultNavigationTimeout(navigationTimeout);
+        
+        console.log(\`Navigating to: \${url}\`);
+        try {
+            await page.goto(url, { waitUntil: 'domcontentloaded', timeout: navigationTimeout });
+        } catch (navError) {
+            if (navError.name === 'TimeoutError') {
+                console.warn('Navigation timed out waiting for DOMContentLoaded:', navError.message);
+            } else {
+                throw navError;
+            }
+        }
+        
+        try {
+            await page.waitForLoadState('networkidle', { timeout: Math.min(navigationTimeout, 15000) });
+        } catch (idleError) {
+            console.warn('Network idle state not reached within timeout, continuing extraction.');
+        }
+        
+        console.log(\`Waiting \${effectiveWait}ms for dynamic content...\`);
+        await page.waitForTimeout(effectiveWait);
+        
+        const html = await page.content();
+        await context.close();
+        await browser.close();
+        
+        res.json({ success: true, html });
+    } catch (error) {
+        console.error('Playwright error:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
+
+const PORT = process.env.PORT || 3050;
+app.listen(PORT, () => {
+    console.log(\`🚀 Playwright extraction server running on port \${PORT}\`);
+    console.log('Ready to extract JavaScript-heavy content!');
+});`.trim();
+
+            const instructions = `
+                <h3>🚀 Playwright Browser Setup Required</h3>
+                <p>To extract content from JavaScript-heavy pages, you need to run a Playwright server:</p>
+                
+                <h4>Step 1: Install Dependencies</h4>
+                <pre><code>npm install playwright express</code></pre>
+                
+                <h4>Step 2: Create Server File</h4>
+                <p>Create a file named <code>extract-server.js</code>:</p>
+                <pre><code>${serverSnippet}</code></pre>
+                
+                <h4>Step 3: Start Server</h4>
+                <pre><code>node extract-server.js
+# starts on port 3050 by default.
+# choose a custom port if needed:
+PORT=4000 node extract-server.js</code></pre>
+
+                <h4>Step 3 (Docker alternative)</h4>
+                <p>Or build a container image and run it:</p>
+                <pre><code>docker build -t playwright-extractor -f docker/Dockerfile .</code></pre>
+                <pre><code>docker run --rm -p 3050:3050 playwright-extractor</code></pre>
+                
+                <h4>Step 4 (Docker Compose for UI + server)</h4>
+                <p>To run both the Playwright helper and this UI together:</p>
+                <pre><code>docker compose -f docker/docker-compose.yml up --build -d</code></pre>
+                <p>The UI will be served at <code>http://localhost:8080</code> and will reach the helper at <code>http://playwright-extractor:3050</code> inside the Docker network.</p>
+                
+                <h4>Step 5: Try Again</h4>
+                <p>Once the server is running, update the "Playwright Server URL" field if needed (current value: <code>${baseForInput}</code>), check "Use Real Browser" and try extracting again.</p>
+                
+                <p><strong>Note:</strong> The first time you run this, Playwright will download Chromium browsers automatically.</p>
+            `;
+            
+            const warningElement = document.getElementById('warningMessage');
+            warningElement.innerHTML = instructions;
+            warningElement.style.display = 'block';
+            warningElement.style.maxHeight = '400px';
+            warningElement.style.overflow = 'auto';
+
+            if (detailsMessage) {
+                warningElement.innerHTML = `<p>${detailsMessage}</p>` + warningElement.innerHTML;
+            }
+        }
+
+        function extractMetadata(doc) {
+            if (!document.getElementById('includeMetadata').checked) {
+                return {};
+            }
+
+            const metadata = {
+                title: doc.title || 'No title',
+                description: getMetaContent(doc, 'description'),
+                keywords: getMetaContent(doc, 'keywords'),
+                author: getMetaContent(doc, 'author'),
+                canonical: getCanonicalUrl(doc),
+                language: doc.documentElement.lang || 'unknown',
+                viewport: getMetaContent(doc, 'viewport')
+            };
+
+            // Open Graph data
+            const ogData = {};
+            ['title', 'description', 'image', 'url', 'type', 'site_name'].forEach(prop => {
+                const content = getMetaContent(doc, `og:${prop}`, 'property');
+                if (content) ogData[prop] = content;
+            });
+
+            if (Object.keys(ogData).length > 0) {
+                metadata.openGraph = ogData;
+            }
+
+            return metadata;
+        }
+
+        function extractMainContent(doc) {
+            try {
+                const options = {
+                    includeImages: document.getElementById('includeImages').checked,
+                    includeLinks: document.getElementById('includeLinks').checked,
+                    cleanContent: document.getElementById('cleanContent').checked
+                };
+
+                let content = '';
+                
+                // Try to find main content area
+                const mainSelectors = [
+                    'main', 'article', '[role="main"]', 
+                    '.content', '.main-content', '#content',
+                    '.post-content', '.entry-content'
+                ];
+                
+                let mainElement = null;
+                for (const selector of mainSelectors) {
+                    mainElement = doc.querySelector(selector);
+                    if (mainElement) break;
+                }
+                
+                // Fallback to body if no main content found
+                if (!mainElement) {
+                    mainElement = doc.body;
+                }
+
+                // Remove unwanted elements
+                const unwantedSelectors = [
+                    'script', 'style', 'nav', 'header', 'footer', 
+                    '.sidebar', '.menu', '.navigation', '.ads',
+                    '.advertisement', '.social-share'
+                ];
+                
+                const clone = mainElement.cloneNode(true);
+                unwantedSelectors.forEach(selector => {
+                    const elements = clone.querySelectorAll(selector);
+                    elements.forEach(el => el.remove());
+                });
+
+                // Extract text content
+                if (options.cleanContent) {
+                    content = cleanTextContent(clone);
+                } else {
+                    content = clone.textContent || clone.innerText || '';
+                }
+
+                // Add image alt text if requested
+                if (options.includeImages) {
+                    const images = clone.querySelectorAll('img');
+                    if (images && images.length > 0) {
+                        const imageTexts = Array.from(images)
+                            .map(img => img.alt || img.title || '[Image]')
+                            .filter(text => text && text !== '[Image]');
+                        
+                        if (imageTexts && imageTexts.length > 0) {
+                            content += '\n\nIMAGES:\n' + imageTexts.join('\n');
+                        }
+                    }
+                }
+
+                // Add link text if requested
+                if (options.includeLinks) {
+                    const links = clone.querySelectorAll('a[href]');
+                    if (links && links.length > 0) {
+                        const linkTexts = Array.from(links)
+                            .map(link => (link.textContent || '').trim())
+                            .filter(text => text.length > 0);
+                        
+                        if (linkTexts && linkTexts.length > 0) {
+                            content += '\n\nLINKS:\n' + linkTexts.join('\n');
+                        }
+                    }
+                }
+
+                return content.trim();
+            } catch (error) {
+                console.warn('Error extracting main content:', error);
+                return doc.body ? (doc.body.textContent || doc.body.innerText || '').trim() : '';
+            }
+        }
+
+        function extractLinks(doc) {
+            try {
+                const links = Array.from(doc.querySelectorAll('a[href]'))
+                    .map(link => ({
+                        text: (link.textContent || '').trim(),
+                        href: link.href || '',
+                        title: link.title || ''
+                    }))
+                    .filter(link => link && link.text && link.text.length > 0);
+                
+                return links || [];
+            } catch (error) {
+                console.warn('Error extracting links:', error);
+                return [];
+            }
+        }
+
+        function extractImages(doc) {
+            const images = Array.from(doc.querySelectorAll('img'))
+                .map(img => ({
+                    src: img.src,
+                    alt: img.alt || '',
+                    title: img.title || '',
+                    width: img.width || 'unknown',
+                    height: img.height || 'unknown'
+                }))
+                .filter(img => img && img.src);
+            
+            return images || [];
+        }
+
+        function extractStructure(doc) {
+            try {
+                const headings = Array.from(doc.querySelectorAll('h1, h2, h3, h4, h5, h6'))
+                    .map(heading => ({
+                        level: parseInt(heading.tagName.charAt(1)),
+                        text: (heading.textContent || '').trim(),
+                        id: heading.id || ''
+                    }));
+
+                const lists = Array.from(doc.querySelectorAll('ul, ol'))
+                    .map(list => ({
+                        type: list.tagName.toLowerCase(),
+                        items: Array.from(list.querySelectorAll('li')).map(li => (li.textContent || '').trim())
+                    }));
+
+                return {
+                    headings: headings || [],
+                    lists: lists || [],
+                    wordCount: (doc.body.textContent || '').split(/\s+/).length,
+                    elementCount: doc.querySelectorAll('*').length || 0
+                };
+            } catch (error) {
+                console.warn('Error extracting structure:', error);
+                return {
+                    headings: [],
+                    lists: [],
+                    wordCount: 0,
+                    elementCount: 0
+                };
+            }
+        }
+
+        function cleanTextContent(element) {
+            const walker = document.createTreeWalker(
+                element,
+                NodeFilter.SHOW_TEXT,
+                null,
+                false
+            );
+
+            let text = '';
+            let node;
+            while (node = walker.nextNode()) {
+                const parent = node.parentElement;
+                if (parent && !['script', 'style'].includes(parent.tagName.toLowerCase())) {
+                    text += node.textContent + ' ';
+                }
+            }
+
+            return text
+                .replace(/\s+/g, ' ')
+                .replace(/\n\s*\n/g, '\n\n')
+                .trim();
+        }
+
+        function getMetaContent(doc, name, attribute = 'name') {
+            const meta = doc.querySelector(`meta[${attribute}="${name}"]`);
+            return meta ? meta.content : '';
+        }
+
+        function getCanonicalUrl(doc) {
+            const canonical = doc.querySelector('link[rel="canonical"]');
+            return canonical ? canonical.href : '';
+        }
+
+        function formatForLLM(data) {
+            let formatted = `# Web Page Content Analysis\n\n`;
+            formatted += `**URL:** ${data.url}\n`;
+            formatted += `**Extracted:** ${data.timestamp}\n`;
+            formatted += `**Method:** ${data.extractionMethod || 'direct'}\n\n`;
+            
+            if (data.metadata && Object.keys(data.metadata).length > 0) {
+                formatted += `## Metadata\n\n`;
+                Object.entries(data.metadata).forEach(([key, value]) => {
+                    if (typeof value === 'object') {
+                        formatted += `**${key}:**\n`;
+                        Object.entries(value).forEach(([subKey, subValue]) => {
+                            formatted += `  - ${subKey}: ${subValue}\n`;
+                        });
+                    } else {
+                        formatted += `**${key}:** ${value}\n`;
+                    }
+                });
+                formatted += '\n';
+            }
+
+            formatted += `## Main Content\n\n${data.content}\n\n`;
+
+            if (data.structure) {
+                formatted += `## Structure Analysis\n\n`;
+                formatted += `- **Word Count:** ${data.structure.wordCount}\n`;
+                formatted += `- **Element Count:** ${data.structure.elementCount}\n`;
+                
+                if (data.structure.headings.length > 0) {
+                    formatted += `\n### Headings\n\n`;
+                    data.structure.headings.forEach(heading => {
+                        const indent = '  '.repeat(heading.level - 1);
+                        formatted += `${indent}- ${heading.text}\n`;
+                    });
+                }
+            }
+
+            if (data.links && data.links.length > 0) {
+                formatted += `\n## Links (${data.links.length})\n\n`;
+                data.links.slice(0, 20).forEach((link, i) => {
+                    formatted += `${i + 1}. ${link.text} - ${link.href}\n`;
+                });
+                if (data.links.length > 20) {
+                    formatted += `... and ${data.links.length - 20} more links\n`;
+                }
+            }
+
+            if (data.images && data.images.length > 0) {
+                formatted += `\n## Images (${data.images.length})\n\n`;
+                data.images.slice(0, 10).forEach((img, i) => {
+                    formatted += `${i + 1}. ${img.alt || 'No alt text'} - ${img.src}\n`;
+                });
+                if (data.images.length > 10) {
+                    formatted += `... and ${data.images.length - 10} more images\n`;
+                }
+            }
+
+            // Add extraction notes
+            if (data.extractionMethod) {
+                formatted += `\n## Extraction Notes\n\n`;
+                switch (data.extractionMethod) {
+                    case 'playwright':
+                        formatted += `Content rendered with a Playwright-controlled browser to execute JavaScript before extraction.\n`;
+                        break;
+                    case 'playwright-fallback':
+                        formatted += `Playwright rendering was attempted but unavailable. Fallback text-only services were used; dynamic content may be missing.\n`;
+                        break;
+                    case 'cached':
+                        formatted += `Content retrieved from a cached copy (Google Webcache/Wayback). It may differ from the live page.\n`;
+                        break;
+                    case 'alternative':
+                        formatted += `This page requires JavaScript to load properly. Content was extracted using alternative methods.\n`;
+                        formatted += `Some dynamic content may be missing. For complete content, consider:\n`;
+                        formatted += `- Enabling JavaScript in your browser\n`;
+                        formatted += `- Using a browser automation tool\n`;
+                        formatted += `- Accessing the page directly\n`;
+                        break;
+                    default:
+                        formatted += `Extraction method: ${data.extractionMethod}.\n`;
+                }
+            }
+
+            return formatted;
+        }
+
+        function convertToMarkdown(data) {
+            let markdown = `# ${data.metadata.title || 'Untitled Page'}\n\n`;
+            
+            if (data.metadata.description) {
+                markdown += `> ${data.metadata.description}\n\n`;
+            }
+
+            markdown += `**URL:** ${data.url}\n\n`;
+            markdown += `---\n\n`;
+
+            // Convert content to basic markdown
+            const content = data.content
+                .replace(/\n\n+/g, '\n\n')
+                .replace(/^([A-Z][^.!?]*[.!?])$/gm, '$1\n\n');
+            
+            markdown += content;
+
+            return markdown;
+        }
+
+        function showResults() {
+            document.getElementById('resultsSection').style.display = 'block';
+            
+            // Show extraction method details
+            const methodElement = document.getElementById('extractionMethod');
+            methodElement.style.display = 'none';
+            if (extractedData.extractionMethod) {
+                switch (extractedData.extractionMethod) {
+                    case 'playwright':
+                        methodElement.innerHTML = `✅ <strong>Playwright Browser Rendering</strong><br>JavaScript was executed in a headless browser before extraction.`;
+                        methodElement.style.display = 'block';
+                        break;
+                    case 'playwright-fallback':
+                        methodElement.innerHTML = `⚠️ <strong>Playwright Unavailable</strong><br>Attempted browser rendering, but fell back to text-only services. Dynamic content may be missing.`;
+                        methodElement.style.display = 'block';
+                        break;
+                    case 'cached':
+                        methodElement.innerHTML = `ℹ️ <strong>Cached Copy Used</strong><br>Content came from Google Webcache/Wayback. It may differ from the live site.`;
+                        methodElement.style.display = 'block';
+                        break;
+                    case 'alternative':
+                        methodElement.innerHTML = `⚠️ <strong>Alternative Extraction Method Used</strong><br>This page requires JavaScript. Content was extracted using text-only services. Some dynamic content may be missing.`;
+                        methodElement.style.display = 'block';
+                        break;
+                    default:
+                        methodElement.innerHTML = `ℹ️ <strong>Extraction Method:</strong> ${extractedData.extractionMethod}`;
+                        methodElement.style.display = 'block';
+                }
+            }
+            
+            // Display stats
+            displayStats(extractedData);
+            
+            // Display content in different formats
+            document.getElementById('extractedContent').textContent = formatForLLM(extractedData);
+            document.getElementById('structuredContent').textContent = JSON.stringify(extractedData.structure, null, 2);
+            document.getElementById('markdownContent').textContent = convertToMarkdown(extractedData);
+            document.getElementById('jsonContent').textContent = JSON.stringify(extractedData, null, 2);
+        }
+
+        function displayStats(data) {
+            const stats = [
+                { label: 'Words', value: data.structure?.wordCount || 0 },
+                { label: 'Links', value: data.links?.length || 0 },
+                { label: 'Images', value: data.images?.length || 0 },
+                { label: 'Headings', value: data.structure?.headings?.length || 0 },
+                { label: 'Elements', value: data.structure?.elementCount || 0 },
+                { label: 'Content Size', value: `${(data.content?.length || 0).toLocaleString()} chars` }
+            ];
+
+            const statsGrid = document.getElementById('statsGrid');
+            statsGrid.innerHTML = stats.map(stat => `
+                <div class="stat-card">
+                    <div class="stat-value">${stat.value}</div>
+                    <div class="stat-label">${stat.label}</div>
+                </div>
+            `).join('');
+        }
+
+        function switchTab(button, tab) {
+            // Update tab buttons
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            button.classList.add('active');
+
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.getElementById(`${tab}-tab`).classList.add('active');
+            
+            currentTab = tab;
+        }
+
+        async function copyMainContent() {
+            if (!extractedData) {
+                showError('No content to copy');
+                return;
+            }
+
+            const mainContent = extractedData.content || '';
+            if (!mainContent.trim()) {
+                showWarning('Main content is empty, nothing to copy.');
+                return;
+            }
+
+            try {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    await navigator.clipboard.writeText(mainContent);
+                } else {
+                    // Fallback for browsers without async clipboard support
+                    const textarea = document.createElement('textarea');
+                    textarea.value = mainContent;
+                    textarea.style.position = 'fixed';
+                    textarea.style.opacity = '0';
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textarea);
+                }
+                showSuccess('Main content copied to clipboard!');
+            } catch (error) {
+                console.error('Clipboard copy failed:', error);
+                showError('Failed to copy main content. Please copy manually.');
+            }
+        }
+
+        async function copyContent(format) {
+            if (!extractedData) {
+                showError('No content to copy');
+                return;
+            }
+
+            let content = '';
+            let label = '';
+
+            switch (format) {
+                case 'txt':
+                    content = formatForLLM(extractedData);
+                    label = 'Text';
+                    break;
+                case 'md':
+                    content = convertToMarkdown(extractedData);
+                    label = 'Markdown';
+                    break;
+                case 'json':
+                    content = JSON.stringify(extractedData, null, 2);
+                    label = 'JSON';
+                    break;
+                case 'html':
+                    content = `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>${extractedData.metadata?.title || 'Extracted Content'}</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        pre { background: #f5f5f5; padding: 15px; border-radius: 5px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>${extractedData.metadata?.title || 'Extracted Content'}</h1>
+    <pre>${formatForLLM(extractedData)}</pre>
+</body>
+</html>`;
+                    label = 'HTML';
+                    break;
+                default:
+                    showError('Unsupported copy format requested.');
+                    return;
+            }
+
+            if (!content) {
+                showWarning(`No ${label.toLowerCase()} content available to copy.`);
+                return;
+            }
+
+            try {
+                if (navigator.clipboard?.writeText) {
+                    await navigator.clipboard.writeText(content);
+                } else {
+                    const textarea = document.createElement('textarea');
+                    textarea.value = content;
+                    textarea.style.position = 'fixed';
+                    textarea.style.opacity = '0';
+                    document.body.appendChild(textarea);
+                    textarea.focus();
+                    textarea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textarea);
+                }
+                showSuccess(`${label} copied to clipboard!`);
+            } catch (error) {
+                console.error('Clipboard copy failed:', error);
+                showError(`Failed to copy ${label.toLowerCase()} content. Please copy manually.`);
+            }
+        }
+
+        function isValidUrl(string) {
+            try {
+                new URL(string);
+                return true;
+            } catch (_) {
+                return false;
+            }
+        }
+
+        function showProgress() {
+            document.getElementById('progressSection').style.display = 'block';
+            document.getElementById('resultsSection').style.display = 'none';
+        }
+
+        function hideProgress() {
+            document.getElementById('progressSection').style.display = 'none';
+        }
+
+        function setProgress(percent, status) {
+            document.getElementById('progressFill').style.width = `${percent}%`;
+            document.getElementById('statusText').textContent = status;
+        }
+
+        function showError(message) {
+            const errorElement = document.getElementById('errorMessage');
+            errorElement.textContent = `❌ ${message}`;
+            errorElement.style.display = 'block';
+            setTimeout(() => {
+                errorElement.style.display = 'none';
+            }, 5000);
+        }
+
+        function showSuccess(message) {
+            const successElement = document.getElementById('successMessage');
+            successElement.textContent = `✅ ${message}`;
+            successElement.style.display = 'block';
+            setTimeout(() => {
+                successElement.style.display = 'none';
+            }, 3000);
+        }
+
+        function showWarning(message) {
+            const warningElement = document.getElementById('warningMessage');
+            warningElement.innerHTML = `⚠️ ${message}`;
+            warningElement.style.display = 'block';
+            setTimeout(() => {
+                warningElement.style.display = 'none';
+            }, 8000);
+        }
+
+        function hideMessages() {
+            document.getElementById('errorMessage').style.display = 'none';
+            document.getElementById('successMessage').style.display = 'none';
+            document.getElementById('warningMessage').style.display = 'none';
+            document.getElementById('extractionMethod').style.display = 'none';
+        }
+
+        // Handle Enter key in URL input
+        document.getElementById('urlInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                processUrl();
+            }
+        });
+    </script>
+</body>
+</html>
