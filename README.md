@@ -79,5 +79,4 @@ This exposes the UI at `http://localhost:8080`, with the helper available at `ht
 
 ## License
 
-This project is released under the MIT License (`LICENSE`). Update the copyright notice with
-your name or organization if needed before sharing the repository publicly.
+This project is released under the MIT License (`LICENSE`) © 2025 Jansen Tang.
