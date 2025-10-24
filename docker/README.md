@@ -45,7 +45,19 @@ This exposes:
 - UI at `http://localhost:8080`
 - Playwright helper at `http://localhost:3050`
 
-Inside the compose network, the UI reaches the helper at `http://playwright-extractor:3050`.
+By default you are expected to run Ollama separately on the host (for example, `ollama serve` listening on `http://localhost:11434`). Adjust the UI’s “Ollama Server” field accordingly.
+
+If you prefer to run Ollama in Docker, uncomment the `ollama` service near the bottom of `docker-compose.yml`, then run `docker compose up -d` again so the stack restarts in the background. The commented block already includes persistent storage, CORS settings, and optional GPU hints.
+
+### (Optional) Pull Ollama models
+
+When running the Ollama container, you still need to download models. After enabling the service and bringing the stack up:
+
+```bash
+ollama pull llama3.1
+```
+
+The command targets the container because port `11434` is published to the host. Pull any other models you want (`mistral`, `phi3`, etc.).
 
 ### Shut down compose services
 
@@ -56,3 +68,10 @@ docker compose -f docker/docker-compose.yml down
 ## Updating the UI instructions
 
 If you move this folder or change ports, update the guidance text embedded in `web_content_extractor.html` so the on-screen setup instructions stay accurate.
+
+## Troubleshooting Ollama & CORS
+
+The UI calls Ollama directly from the browser, so the Ollama server must allow the UI origin. When using the container, set `OLLAMA_ORIGINS=file://,http://localhost:8080,http://127.0.0.1:8080` (already present in the commented service). If you serve the UI from a different hostname or port, adjust that environment variable accordingly.
+
+- Browser error “Failed to fetch”: CORS is likely blocking the request. Update `OLLAMA_ORIGINS` to include the UI origin and restart the Ollama container.
+- Running Ollama on the host: ensure you export `OLLAMA_ORIGINS` before launching `ollama serve`, e.g. `export OLLAMA_ORIGINS="file://,http://localhost:8080"`.

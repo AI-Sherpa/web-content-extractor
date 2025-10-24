@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Web Content Extractor for LLM Processing</title>
+    <link rel="icon" type="image/svg+xml" href="static/favicon.svg">
+    <link rel="icon" type="image/png" href="static/favicon.png">
     <style>
         * {
             margin: 0;
@@ -54,21 +56,84 @@
 
         .input-group {
             display: flex;
-            gap: 15px;
+            gap: 20px;
             margin-bottom: 20px;
-            align-items: stretch;
+            align-items: flex-start;
         }
 
-        .url-input {
+        .toggle-panel {
+            width: 100%;
+            background: #f7fafc;
+            border: 2px solid #e2e8f0;
+            border-radius: 15px;
+            overflow: hidden;
+            transition: box-shadow 0.3s ease;
+        }
+
+        .toggle-panel:not(.collapsed) {
+            box-shadow: 0 12px 30px rgba(79, 209, 197, 0.18);
+        }
+
+        .toggle-title {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 16px 18px;
+            background: #edf2f7;
+            cursor: pointer;
+            font-weight: 600;
+            color: #4a5568;
+        }
+
+        .toggle-section {
+            padding: 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .toggle-section.collapsed {
+            display: none;
+        }
+
+        .toggle-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .toggle-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: rgba(102, 126, 234, 0.12);
+            color: #4c51bf;
+            font-size: 14px;
+        }
+
+        .action-column {
+            flex: 0 0 320px;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        .task-input {
             flex: 1;
             padding: 15px;
             border: 2px solid #cbd5e0;
             border-radius: 10px;
             font-size: 16px;
             transition: all 0.3s ease;
+            resize: vertical;
+            min-height: 120px;
         }
 
-        .url-input:focus {
+        .task-input:focus {
             outline: none;
             border-color: #667eea;
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
@@ -85,6 +150,7 @@
             cursor: pointer;
             transition: all 0.3s ease;
             min-width: 150px;
+            width: 100%;
         }
 
         .process-button:hover {
@@ -181,132 +247,249 @@
             font-weight: 500;
         }
 
-        .results-section {
-            display: none;
-            background: #f7fafc;
-            padding: 25px;
-            border-radius: 15px;
-            border: 2px solid #e2e8f0;
+        .assistant-extraction {
+            margin-top: 18px;
+            border: 1px solid rgba(203, 213, 225, 0.8);
+            border-radius: 14px;
+            background: rgba(237, 242, 247, 0.9);
+            overflow: hidden;
         }
 
-        .results-tabs {
+        .assistant-extraction-toggle {
+            width: 100%;
             display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-            border-bottom: 2px solid #e2e8f0;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 14px 18px;
+            background: transparent;
+            border: none;
+            font-weight: 600;
+            color: #4a5568;
+            cursor: pointer;
         }
 
-        .tab-button {
-            padding: 12px 20px;
+        .assistant-extraction-toggle:hover {
+            background: rgba(102, 126, 234, 0.08);
+        }
+
+        .assistant-extraction-icon {
+            font-size: 14px;
+            color: #4c51bf;
+        }
+
+        .assistant-extraction-body {
+            display: none;
+            padding: 18px;
+            border-top: 1px solid rgba(203, 213, 225, 0.6);
+            background: rgba(247, 250, 252, 0.94);
+        }
+
+        .assistant-extraction.open .assistant-extraction-body {
+            display: block;
+        }
+
+        .assistant-extraction-meta {
+            font-size: 13px;
+            color: #4a5568;
+            margin-bottom: 12px;
+        }
+
+        .assistant-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 16px;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 4px;
+        }
+
+        .assistant-tab-button {
+            padding: 10px 16px;
             background: none;
             border: none;
             border-bottom: 3px solid transparent;
             color: #718096;
-            font-size: 16px;
+            font-size: 14px;
             font-weight: 500;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: all 0.2s ease;
         }
 
-        .tab-button.active {
-            color: #667eea;
-            border-bottom-color: #667eea;
+        .assistant-tab-button.active {
+            color: #4c51bf;
+            border-bottom-color: #4c51bf;
         }
 
-        .tab-content {
+        .assistant-tab-content {
             display: none;
-            padding: 20px 0;
         }
 
-        .tab-content.active {
+        .assistant-tab-content.active {
             display: block;
         }
 
-        .content-preview {
+        .assistant-content-preview {
             background: white;
-            padding: 20px;
-            border-radius: 10px;
+            padding: 16px;
+            border-radius: 12px;
             border: 1px solid #e2e8f0;
-            max-height: 400px;
+            max-height: 320px;
             overflow-y: auto;
             white-space: pre-wrap;
             font-family: 'Courier New', monospace;
-            font-size: 14px;
-            line-height: 1.5;
+            font-size: 13px;
+            line-height: 1.45;
         }
 
-        .download-section {
+        .assistant-downloads {
             display: flex;
-            gap: 15px;
-            margin-top: 20px;
             flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 18px;
         }
 
-        .download-button {
-            padding: 12px 25px;
-            background: linear-gradient(135deg, #48bb78, #38a169);
-            color: white;
-            border: none;
+        .assistant-download-button {
+            padding: 10px 18px;
             border-radius: 8px;
-            font-size: 14px;
-            font-weight: bold;
+            border: none;
             cursor: pointer;
-            transition: all 0.3s ease;
-            display: flex;
+            font-size: 13px;
+            font-weight: 600;
+            display: inline-flex;
             align-items: center;
             gap: 8px;
+            transition: all 0.2s ease;
         }
 
-        .download-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(72, 187, 120, 0.4);
-        }
-
-        .copy-button {
-            padding: 12px 25px;
+        .assistant-download-button.copy-main {
             background: linear-gradient(135deg, #4299e1, #3182ce);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.3s ease;
+            color: #ffffff;
+        }
+
+        .assistant-download-button.copy-main:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(66, 153, 225, 0.35);
+        }
+
+        .assistant-download-button.secondary {
+            background: linear-gradient(135deg, #48bb78, #38a169);
+            color: #ffffff;
+        }
+
+        .assistant-download-button.secondary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(72, 187, 120, 0.35);
+        }
+
+        .conversation {
+            background: #f7fafc;
+            border: 2px solid #e2e8f0;
+            border-radius: 15px;
+            padding: 20px;
+            margin: 25px 0;
             display: flex;
+            flex-direction: column;
+            gap: 16px;
+            max-height: 420px;
+            overflow-y: auto;
+        }
+
+        .conversation-message {
+            display: flex;
+            gap: 12px;
+        }
+
+        .conversation-message.user {
+            justify-content: flex-end;
+        }
+
+        .conversation-message.status .conversation-bubble {
+            background: #edf2f7;
+            border-color: #cbd5e0;
+            color: #2d3748;
+            font-weight: 500;
+        }
+
+        .conversation-message.status.status-info .conversation-bubble {
+            background: #ebf8ff;
+            border-color: #bee3f8;
+            color: #2b6cb0;
+        }
+
+        .conversation-message.status.status-success .conversation-bubble {
+            background: #f0fff4;
+            border-color: #c6f6d5;
+            color: #2f855a;
+        }
+
+        .conversation-message.status.status-warning .conversation-bubble {
+            background: #fefcbf;
+            border-color: #faf089;
+            color: #b7791f;
+        }
+
+        .conversation-message.status.status-error .conversation-bubble {
+            background: #fed7d7;
+            border-color: #feb2b2;
+            color: #c53030;
+        }
+
+        .conversation-bubble {
+            max-width: 80%;
+            border-radius: 14px;
+            padding: 12px 16px;
+            background: #edf2f7;
+            border: 1px solid #cbd5e0;
+            line-height: 1.5;
+            white-space: pre-wrap;
+        }
+
+        .conversation-message.user .conversation-bubble {
+            background: #4c51bf;
+            color: #ffffff;
+            border-color: #434190;
+        }
+
+        .conversation-bubble pre {
+            background: transparent;
+            border: none;
+            white-space: pre-wrap;
+            margin: 0;
+            font-family: inherit;
+        }
+
+        .status-message-text {
+            font-size: 14px;
+            line-height: 1.45;
+            white-space: pre-wrap;
+        }
+
+        .assistant-loading-inline {
+            display: inline-flex;
             align-items: center;
             gap: 8px;
         }
 
-        .copy-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(66, 153, 225, 0.4);
+        .assistant-loading-inline .dot {
+            width: 8px;
+            height: 8px;
+            background: #4c51bf;
+            border-radius: 50%;
+            animation: pulse 1.5s infinite ease-in-out;
         }
 
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-bottom: 20px;
+        .assistant-loading-inline .dot:nth-child(2) {
+            animation-delay: 0.2s;
         }
 
-        .stat-card {
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            border: 1px solid #e2e8f0;
-            text-align: center;
+        .assistant-loading-inline .dot:nth-child(3) {
+            animation-delay: 0.4s;
         }
 
-        .stat-value {
-            font-size: 2rem;
-            font-weight: bold;
-            color: #667eea;
-            margin-bottom: 5px;
-        }
-
-        .stat-label {
-            color: #718096;
-            font-size: 0.9rem;
+        @keyframes pulse {
+            0%, 80%, 100% { opacity: 0.2; transform: scale(0.8); }
+            40% { opacity: 1; transform: scale(1); }
         }
 
         .error-message {
@@ -374,13 +557,13 @@
             .input-group {
                 flex-direction: column;
             }
+
+            .action-column {
+                width: 100%;
+            }
             
             .options {
                 grid-template-columns: 1fr;
-            }
-            
-            .stats-grid {
-                grid-template-columns: repeat(2, 1fr);
             }
         }
     </style>
@@ -388,59 +571,89 @@
 <body>
     <div class="container">
         <h1>🌐 Web Content Extractor</h1>
-        <p class="subtitle">Parse web pages and extract content for LLM processing</p>
+        <p class="subtitle">Paste an instruction with a URL. The app fetches the page and pushes it through your Ollama model automatically.</p>
 
         <div class="error-message" id="errorMessage"></div>
         <div class="warning-message" id="warningMessage"></div>
         <div class="success-message" id="successMessage"></div>
         <div class="extraction-method" id="extractionMethod"></div>
 
-        <div class="input-section">
-            <div class="input-group">
-                <input 
-                    type="url" 
-                    class="url-input" 
-                    id="urlInput" 
-                    placeholder="Enter URL to extract content from..."
-                    value=""
-                >
-                <button class="process-button" id="processButton" onclick="processUrl()">
-                    Extract Content
-                </button>
-            </div>
+        <div class="conversation" id="chatMessages"></div>
 
-        <div class="options">
-                <div class="option-group">
-                    <input type="checkbox" id="includeImages" checked>
-                    <label for="includeImages">Include Image Alt Text</label>
-                </div>
-                <div class="option-group">
-                    <input type="checkbox" id="includeLinks" checked>
-                    <label for="includeLinks">Include Link Text</label>
-                </div>
-                <div class="option-group">
-                    <input type="checkbox" id="includeMetadata" checked>
-                    <label for="includeMetadata">Include Page Metadata</label>
-                </div>
-                <div class="option-group">
-                    <input type="checkbox" id="expandDynamic" checked>
-                    <label for="expandDynamic">Expand Dynamic Content</label>
-                </div>
-                <div class="option-group">
-                    <input type="checkbox" id="cleanContent" checked>
-                    <label for="cleanContent">Clean & Format Content</label>
-                </div>
-                <div class="option-group">
-                    <input type="checkbox" id="useBrowser" checked>
-                    <label for="useBrowser">Use Real Browser (Playwright)</label>
-                </div>
-                <div class="option-group">
-                    <label for="waitTime">Wait Time (ms):</label>
-                    <input type="number" id="waitTime" value="3000" min="1000" max="10000" step="500">
-                </div>
-                <div class="option-group option-group-wide">
-                    <label for="playwrightServer">Playwright Server URL:</label>
-                    <input type="url" id="playwrightServer" value="http://localhost:3050" placeholder="http://localhost:3050">
+        <div class="input-section">
+            <label class="input-label" for="taskInput">Instruction &amp; URL</label>
+            <div class="input-group">
+                <textarea
+                    class="task-input"
+                    id="taskInput"
+                    placeholder=""></textarea>
+                <div class="action-column">
+                    <button class="process-button" id="processButton" onclick="runTask()">
+                        Run Task
+                    </button>
+                    <div class="toggle-panel collapsed" id="optionsPanel">
+                        <div class="toggle-title collapsed" id="optionsToggle">
+                            <span>Extraction &amp; Server Options</span>
+                            <span class="toggle-icon" id="optionsToggleIcon">▸</span>
+                        </div>
+                        <div class="toggle-section collapsed" id="optionsToggleContent">
+                            <div class="toggle-grid">
+                                <label class="option-group">
+                                    <input type="checkbox" id="includeImages" checked>
+                                    <span>Include Image Alt Text</span>
+                                </label>
+                                <label class="option-group">
+                                    <input type="checkbox" id="includeLinks" checked>
+                                    <span>Include Link Text</span>
+                                </label>
+                                <label class="option-group">
+                                    <input type="checkbox" id="includeMetadata" checked>
+                                    <span>Include Page Metadata</span>
+                                </label>
+                                <label class="option-group">
+                                    <input type="checkbox" id="expandDynamic" checked>
+                                    <span>Expand Dynamic Content</span>
+                                </label>
+                                <label class="option-group">
+                                    <input type="checkbox" id="cleanContent" checked>
+                                    <span>Clean &amp; Format Content</span>
+                                </label>
+                            </div>
+                            <div class="toggle-grid">
+                                <label class="option-group option-group-wide">
+                                    <span>Playwright Server URL</span>
+                                    <input type="url" id="playwrightServer" value="http://localhost:3050" placeholder="http://localhost:3050">
+                                </label>
+                                <label class="option-group">
+                                    <span>Wait Time (ms)</span>
+                                    <input type="number" id="waitTime" value="3000" min="1000" max="10000" step="500">
+                                </label>
+                                <label class="option-group option-group-wide">
+                                    <span>Ollama Server URL</span>
+                                    <input type="url" id="ollamaServer" class="llm-input" placeholder="http://localhost:11434">
+                                </label>
+                                <label class="option-group option-group-wide">
+                                    <span>Ollama Model</span>
+                                    <div class="llm-model-row">
+                                        <select id="ollamaModel" class="llm-select">
+                                            <option value="" disabled selected>Loading models...</option>
+                                        </select>
+                                        <button class="llm-refresh-button" type="button" onclick="loadOllamaModels(true)">↻ Refresh</button>
+                                    </div>
+                                </label>
+                                <div class="llm-format-toggle">
+                                    <label>
+                                        <input type="radio" name="llmPayloadFormat" value="markdown" checked>
+                                        Markdown
+                                    </label>
+                                    <label>
+                                        <input type="radio" name="llmPayloadFormat" value="json">
+                                        JSON
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -451,190 +664,1166 @@
             </div>
             <div class="status-text" id="statusText">Initializing...</div>
         </div>
-
-        <div class="results-section" id="resultsSection">
-            <div class="stats-grid" id="statsGrid">
-                <!-- Stats will be populated here -->
-            </div>
-
-            <div class="results-tabs">
-                <button class="tab-button active" onclick="switchTab(this, 'extracted')">Extracted Content</button>
-                <button class="tab-button" onclick="switchTab(this, 'structured')">Structured Data</button>
-                <button class="tab-button" onclick="switchTab(this, 'markdown')">Markdown</button>
-                <button class="tab-button" onclick="switchTab(this, 'json')">JSON</button>
-            </div>
-
-            <div class="tab-content active" id="extracted-tab">
-                <div class="content-preview" id="extractedContent"></div>
-            </div>
-
-            <div class="tab-content" id="structured-tab">
-                <div class="content-preview" id="structuredContent"></div>
-            </div>
-
-            <div class="tab-content" id="markdown-tab">
-                <div class="content-preview" id="markdownContent"></div>
-            </div>
-
-            <div class="tab-content" id="json-tab">
-                <div class="content-preview" id="jsonContent"></div>
-            </div>
-
-            <div class="download-section">
-                <button class="copy-button" onclick="copyMainContent()">
-                    📋 Copy Main Content
-                </button>
-                <button class="download-button" onclick="copyContent('txt')">
-                    📄 Copy Text
-                </button>
-                <button class="download-button" onclick="copyContent('md')">
-                    📝 Copy Markdown
-                </button>
-                <button class="download-button" onclick="copyContent('json')">
-                    📊 Copy JSON
-                </button>
-                <button class="download-button" onclick="copyContent('html')">
-                    🌐 Copy HTML
-                </button>
-            </div>
-        </div>
     </div>
 
     <script>
-        let extractedData = null;
-        let currentTab = 'extracted';
-        const PLAYWRIGHT_STORAGE_KEY = 'playwrightServerUrl';
+let extractedData = null;
+const extractionHistory = [];
+const PLAYWRIGHT_STORAGE_KEY = 'playwrightServerUrl';
+const OLLAMA_SERVER_STORAGE_KEY = 'ollamaServerUrl';
+const OLLAMA_MODEL_STORAGE_KEY = 'ollamaModel';
+const PREFERRED_OLLAMA_MODEL = 'gpt-oss:120b-cloud';
+const DEFAULT_OLLAMA_MODELS = [
+    PREFERRED_OLLAMA_MODEL,
+    'llama3.1:latest',
+    'llama3',
+    'mistral',
+    'mixtral',
+    'phi3'
+];
+const LLM_RESPONSE_FORMAT_HINT = [
+    'Format your entire response as semantic HTML that renders cleanly in a browser.',
+    'Use headings (<h2>, <h3>), paragraphs, bullet lists, numbered lists, tables, and short sections where helpful.',
+    'Wrap code samples in <pre><code>...</code></pre> blocks.',
+    'Avoid including <script>, <iframe>, <object>, <embed>, <html>, <head>, or <body> tags.'
+].join(' ');
 
-        // Initialize with example URL
-        document.getElementById('urlInput').value = 'https://example.com';
+function escapeHtml(value) {
+    return value.replace(/[&<>"']/g, function(char) {
+        switch (char) {
+            case '&': return '&amp;';
+            case '<': return '&lt;';
+            case '>': return '&gt;';
+            case '"': return '&quot;';
+            case "'": return '&#39;';
+            default: return char;
+        }
+    });
+}
 
-        // Restore saved Playwright server URL if available
-        (function restorePlaywrightServerSetting() {
-            const input = document.getElementById('playwrightServer');
-            if (!input) return;
-            try {
-                const saved = localStorage.getItem(PLAYWRIGHT_STORAGE_KEY);
-                if (saved) {
-                    input.value = saved;
-                }
-            } catch (storageError) {
-                console.warn('Unable to access localStorage for Playwright server URL:', storageError);
+const conversationEl = document.getElementById('chatMessages');
+let pendingAssistantMessage = null;
+let statusMessageEl = null;
+
+function appendConversationMessage(role, html) {
+    if (!conversationEl) return null;
+    const wrapper = document.createElement('div');
+    wrapper.className = `conversation-message ${role}`;
+    const bubble = document.createElement('div');
+    bubble.className = 'conversation-bubble';
+    bubble.innerHTML = html;
+    wrapper.appendChild(bubble);
+    conversationEl.appendChild(wrapper);
+    requestAnimationFrame(scrollConversationToEnd);
+    return wrapper;
+}
+
+function updateConversationMessage(messageEl, html) {
+    if (!messageEl) return;
+    const bubble = messageEl.querySelector('.conversation-bubble');
+    if (bubble) {
+        bubble.innerHTML = html;
+        requestAnimationFrame(scrollConversationToEnd);
+    }
+}
+
+function renderUserMessage(text) {
+    return `<pre>${escapeHtml(text)}</pre>`;
+}
+
+function renderAssistantLoading(text = 'Working…') {
+    return `<span class="assistant-loading-inline"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span>${escapeHtml(text)}</span></span>`;
+}
+
+function renderAssistantResponse(llmHtml, data, extractionIndex) {
+    const detailsHtml = data ? renderExtractionDetails(data, extractionIndex) : '';
+    return `
+        <div class="assistant-llm">${llmHtml}</div>
+        ${detailsHtml}
+    `;
+}
+
+function renderExtractionDetails(data, extractionIndex) {
+    if (!data) {
+        return '';
+    }
+
+    const detailId = `details-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6)}`;
+    const formattedOutline = escapeHtml(formatForLLM(data));
+    const structuredJson = escapeHtml(JSON.stringify(data.structure ?? {}, null, 2));
+    const markdown = escapeHtml(convertToMarkdown(data));
+    const rawJson = escapeHtml(JSON.stringify(data, null, 2));
+    const methodLabel = data.extractionMethod ? `<div class="assistant-extraction-meta">Method: ${escapeHtml(data.extractionMethod)}</div>` : '';
+    const indexAttr = typeof extractionIndex === 'number' ? ` data-extraction-index="${extractionIndex}"` : '';
+
+    return `
+        <div class="assistant-extraction"${indexAttr}>
+            <button class="assistant-extraction-toggle" type="button" data-target="${detailId}">
+                <span>Extraction Details</span>
+                <span class="assistant-extraction-icon">▸</span>
+            </button>
+            <div class="assistant-extraction-body" id="${detailId}">
+                ${methodLabel}
+                <div class="assistant-tabs" role="tablist">
+                    <button type="button" class="assistant-tab-button active" data-tab="outline">Formatted Text</button>
+                    <button type="button" class="assistant-tab-button" data-tab="structured">Structured Data</button>
+                    <button type="button" class="assistant-tab-button" data-tab="markdown">Markdown</button>
+                    <button type="button" class="assistant-tab-button" data-tab="json">Full JSON</button>
+                </div>
+                <div class="assistant-tab-content active" data-tab="outline">
+                    <pre class="assistant-content-preview">${formattedOutline}</pre>
+                </div>
+                <div class="assistant-tab-content" data-tab="structured">
+                    <pre class="assistant-content-preview">${structuredJson}</pre>
+                </div>
+                <div class="assistant-tab-content" data-tab="markdown">
+                    <pre class="assistant-content-preview">${markdown}</pre>
+                </div>
+                <div class="assistant-tab-content" data-tab="json">
+                    <pre class="assistant-content-preview">${rawJson}</pre>
+                </div>
+                <div class="assistant-downloads">
+                    <button type="button" class="assistant-download-button copy-main" data-copy-format="main">
+                        📋 Copy Main Content
+                    </button>
+                    <button type="button" class="assistant-download-button secondary" data-copy-format="txt">
+                        📄 Copy Text
+                    </button>
+                    <button type="button" class="assistant-download-button secondary" data-copy-format="md">
+                        📝 Copy Markdown
+                    </button>
+                    <button type="button" class="assistant-download-button secondary" data-copy-format="json">
+                        📊 Copy JSON
+                    </button>
+                    <button type="button" class="assistant-download-button secondary" data-copy-format="html">
+                        🌐 Copy HTML
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function sanitizePreformattedHtml(value) {
+    return value
+        .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '')
+        .replace(/\son\w+\s*=\s*(["']).*?\1/gi, '')
+        .replace(/href\s*=\s*(["'])\s*javascript:[^"']*\1/gi, 'href="#"')
+        .replace(/src\s*=\s*(["'])\s*javascript:[^"']*\1/gi, '');
+}
+
+function escapeAttribute(value) {
+    return escapeHtml(value).replace(/"/g, '&quot;');
+}
+
+function sanitizeLinkUrl(url) {
+    const trimmed = url.trim();
+    if (/^(https?:|mailto:|tel:)/i.test(trimmed)) {
+        return trimmed;
+    }
+    return '';
+}
+
+function applyInlineFormatting(text) {
+    const replacements = [];
+    let working = text;
+
+    const registerReplacement = (html, label) => {
+        const token = `@@__${label}_${replacements.length}__@@`;
+        replacements.push({ token, html });
+        return token;
+    };
+
+    working = working.replace(/`([^`]+)`/g, (_, code) => registerReplacement(`<code>${escapeHtml(code)}</code>`, 'CODE'));
+
+    working = working.replace(/\*\*([^*]+)\*\*/g, (_, content) => registerReplacement(`<strong>${escapeHtml(content)}</strong>`, 'BOLD'));
+    working = working.replace(/__([^_]+)__/g, (_, content) => registerReplacement(`<strong>${escapeHtml(content)}</strong>`, 'BOLD'));
+
+    working = working.replace(/~~([^~]+)~~/g, (_, content) => registerReplacement(`<del>${escapeHtml(content)}</del>`, 'DEL'));
+
+    working = working.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, label, url) => {
+        const safeUrl = sanitizeLinkUrl(url);
+        if (!safeUrl) {
+            return registerReplacement(escapeHtml(`[${label}](${url})`), 'TEXT');
+        }
+        return registerReplacement(
+            `<a href="${escapeAttribute(safeUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(label)}</a>`,
+            'LINK'
+        );
+    });
+
+    working = working.replace(/\*([^*]+)\*/g, (_, content) => registerReplacement(`<em>${escapeHtml(content)}</em>`, 'EM'));
+    working = working.replace(/_([^_]+)_/g, (_, content) => registerReplacement(`<em>${escapeHtml(content)}</em>`, 'EM'));
+
+    let escaped = escapeHtml(working);
+    for (const { token, html } of replacements) {
+        escaped = escaped.split(token).join(html);
+    }
+    return escaped;
+}
+
+function convertMarkdownToHtml(markdown) {
+    const lines = markdown.replace(/\r\n/g, '\n').split('\n');
+    const html = [];
+    let inUl = false;
+    let inOl = false;
+    let inCode = false;
+    let codeLang = '';
+    let codeLines = [];
+    let paragraphLines = [];
+
+    const closeLists = () => {
+        if (inUl) {
+            html.push('</ul>');
+            inUl = false;
+        }
+        if (inOl) {
+            html.push('</ol>');
+            inOl = false;
+        }
+    };
+
+    const flushParagraph = () => {
+        if (!paragraphLines.length) {
+            return;
+        }
+        const content = paragraphLines.join('\n');
+        const formatted = applyInlineFormatting(content).replace(/\n/g, '<br>');
+        html.push(`<p>${formatted}</p>`);
+        paragraphLines = [];
+    };
+
+    const flushCodeBlock = () => {
+        if (!inCode) {
+            return;
+        }
+        const codeContent = codeLines.join('\n');
+        const langAttr = codeLang ? ` class="language-${escapeHtml(codeLang)}"` : '';
+        html.push(`<pre><code${langAttr}>${escapeHtml(codeContent)}</code></pre>`);
+        inCode = false;
+        codeLang = '';
+        codeLines = [];
+    };
+
+    for (const rawLine of lines) {
+        const line = rawLine.replace(/\t/g, '    ');
+        const trimmed = line.trim();
+
+        if (inCode) {
+            if (/^```/.test(trimmed)) {
+                flushCodeBlock();
+            } else {
+                codeLines.push(line);
             }
-            input.addEventListener('change', () => {
-                try {
-                    localStorage.setItem(PLAYWRIGHT_STORAGE_KEY, input.value.trim());
-                } catch (storageError) {
-                    console.warn('Unable to persist Playwright server URL:', storageError);
+            continue;
+        }
+
+        if (!trimmed) {
+            flushParagraph();
+            closeLists();
+            continue;
+        }
+
+        const codeStart = trimmed.match(/^```(\w+)?/);
+        if (codeStart) {
+            flushParagraph();
+            closeLists();
+            inCode = true;
+            codeLang = codeStart[1] || '';
+            continue;
+        }
+
+        const headingMatch = trimmed.match(/^(#{1,6})\s+(.*)$/);
+        if (headingMatch) {
+            flushParagraph();
+            closeLists();
+            const level = headingMatch[1].length;
+            html.push(`<h${level}>${applyInlineFormatting(headingMatch[2])}</h${level}>`);
+            continue;
+        }
+
+        if (/^>\s?/.test(trimmed)) {
+            flushParagraph();
+            closeLists();
+            const quote = trimmed.replace(/^>\s?/, '');
+            html.push(`<blockquote>${applyInlineFormatting(quote)}</blockquote>`);
+            continue;
+        }
+
+        if (/^([-*_])\s*\1\s*\1\s*$/.test(trimmed)) {
+            flushParagraph();
+            closeLists();
+            html.push('<hr>');
+            continue;
+        }
+
+        const olMatch = trimmed.match(/^(\d+)[.)]\s+(.*)$/);
+        if (olMatch) {
+            flushParagraph();
+            if (!inOl) {
+                closeLists();
+                html.push('<ol>');
+                inOl = true;
+            }
+            html.push(`<li>${applyInlineFormatting(olMatch[2])}</li>`);
+            continue;
+        }
+
+        const ulMatch = trimmed.match(/^[-*+]\s+(.*)$/);
+        if (ulMatch) {
+            flushParagraph();
+            if (!inUl) {
+                closeLists();
+                html.push('<ul>');
+                inUl = true;
+            }
+            html.push(`<li>${applyInlineFormatting(ulMatch[1])}</li>`);
+            continue;
+        }
+
+        paragraphLines.push(line);
+    }
+
+    flushParagraph();
+    flushCodeBlock();
+    closeLists();
+
+    if (!html.length) {
+        return `<p>${escapeHtml(markdown)}</p>`;
+    }
+
+    return html.join('');
+}
+
+function renderLlmOutput(message) {
+    if (typeof message !== 'string') {
+        return '<em>(Unexpected LLM response format.)</em>';
+    }
+
+    const trimmed = message.trim();
+    if (!trimmed) {
+        return '<em>(LLM returned an empty response.)</em>';
+    }
+
+    const sanitized = sanitizePreformattedHtml(trimmed);
+    if (/<\/?[a-z][\s\S]*>/i.test(sanitized)) {
+        return sanitized;
+    }
+
+    return convertMarkdownToHtml(sanitized);
+}
+
+function scrollConversationToEnd() {
+    if (conversationEl) {
+        conversationEl.scrollTop = conversationEl.scrollHeight;
+    }
+}
+
+(function restorePlaywrightServerSetting() {
+    const input = document.getElementById('playwrightServer');
+    if (!input) return;
+    try {
+        const saved = localStorage.getItem(PLAYWRIGHT_STORAGE_KEY);
+        if (saved) {
+            input.value = saved;
+        }
+    } catch (storageError) {
+        console.warn('Unable to access localStorage for Playwright server URL:', storageError);
+    }
+    input.addEventListener('change', () => {
+        try {
+            localStorage.setItem(PLAYWRIGHT_STORAGE_KEY, input.value.trim());
+        } catch (storageError) {
+            console.warn('Unable to persist Playwright server URL:', storageError);
+        }
+    });
+})();
+
+(function restoreOllamaSettings() {
+    const serverInput = document.getElementById('ollamaServer');
+    const modelSelect = document.getElementById('ollamaModel');
+    if (!serverInput || !modelSelect) return;
+
+    let storedServerUrl = 'http://localhost:11434';
+    try {
+        const saved = localStorage.getItem(OLLAMA_SERVER_STORAGE_KEY);
+        if (saved) {
+            storedServerUrl = saved;
+        }
+    } catch (storageError) {
+        console.warn('Unable to access localStorage for Ollama server URL:', storageError);
+    }
+    serverInput.value = normalizeOllamaBaseUrl(storedServerUrl);
+
+    serverInput.addEventListener('change', () => {
+        const normalized = normalizeOllamaBaseUrl(serverInput.value);
+        serverInput.value = normalized;
+        try {
+            localStorage.setItem(OLLAMA_SERVER_STORAGE_KEY, normalized);
+        } catch (storageError) {
+            console.warn('Unable to persist Ollama server URL:', storageError);
+        }
+        loadOllamaModels(true);
+    });
+
+    try {
+        const savedModel = localStorage.getItem(OLLAMA_MODEL_STORAGE_KEY);
+        if (savedModel) {
+            modelSelect.dataset.preferredModel = savedModel;
+        }
+    } catch (storageError) {
+        console.warn('Unable to access localStorage for Ollama model preference:', storageError);
+    }
+
+    loadOllamaModels();
+
+    modelSelect.addEventListener('change', () => {
+        try {
+            localStorage.setItem(OLLAMA_MODEL_STORAGE_KEY, modelSelect.value);
+        } catch (storageError) {
+            console.warn('Unable to persist Ollama model preference:', storageError);
+        }
+        updateLlmSendAvailability();
+    });
+})();
+
+(function setupOptionsToggle() {
+    const toggle = document.getElementById('optionsToggle');
+    const content = document.getElementById('optionsToggleContent');
+    const icon = document.getElementById('optionsToggleIcon');
+    const panel = document.getElementById('optionsPanel');
+    if (!toggle || !content || !icon || !panel) {
+        return;
+    }
+
+    function applyState(collapsed) {
+        content.classList.toggle('collapsed', collapsed);
+        toggle.classList.toggle('collapsed', collapsed);
+        panel.classList.toggle('collapsed', collapsed);
+        icon.textContent = collapsed ? '▸' : '▾';
+    }
+
+    applyState(true);
+
+    toggle.addEventListener('click', () => {
+        applyState(!content.classList.contains('collapsed'));
+    });
+})();
+
+if (conversationEl) {
+    conversationEl.addEventListener('click', event => {
+        const toggleButton = event.target.closest('.assistant-extraction-toggle');
+        if (toggleButton) {
+            const container = toggleButton.closest('.assistant-extraction');
+            if (container) {
+                const isOpen = container.classList.toggle('open');
+                const icon = toggleButton.querySelector('.assistant-extraction-icon');
+                if (icon) {
+                    icon.textContent = isOpen ? '▾' : '▸';
                 }
+            }
+            return;
+        }
+
+        const tabButton = event.target.closest('.assistant-tab-button');
+        if (tabButton) {
+            const body = tabButton.closest('.assistant-extraction-body');
+            if (!body) {
+                return;
+            }
+            const tabName = tabButton.dataset.tab;
+            body.querySelectorAll('.assistant-tab-button').forEach(btn => btn.classList.remove('active'));
+            tabButton.classList.add('active');
+            body.querySelectorAll('.assistant-tab-content').forEach(panel => {
+                panel.classList.toggle('active', panel.dataset.tab === tabName);
             });
-        })();
+            return;
+        }
 
-        async function processUrl() {
-            const url = document.getElementById('urlInput').value.trim();
-            
-            if (!url) {
-                showError('Please enter a valid URL');
-                return;
-            }
+        const copyButton = event.target.closest('.assistant-download-button');
+        if (copyButton) {
+            const container = copyButton.closest('.assistant-extraction');
+            const format = copyButton.dataset.copyFormat;
+            const index = container && container.dataset.extractionIndex !== undefined
+                ? Number(container.dataset.extractionIndex)
+                : undefined;
+            copyExtractionContent(format, Number.isFinite(index) ? index : undefined);
+        }
+    });
+}
 
-            if (!isValidUrl(url)) {
-                showError('Please enter a valid URL format');
-                return;
-            }
+const taskInputElement = document.getElementById('taskInput');
+if (taskInputElement) {
+    taskInputElement.addEventListener('keydown', event => {
+        if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+            runTask();
+        }
+    });
+}
 
-            hideMessages();
-            showProgress();
-            setProgress(0, 'Initializing extraction...');
-            
-            try {
-                // Use CORS proxy or server-side extraction
-                const content = await extractContent(url);
-                extractedData = content;
-                
-                setProgress(100, 'Extraction complete!');
-                
-                setTimeout(() => {
-                    hideProgress();
-                    showResults();
-                    showSuccess('Content extracted successfully!');
-                }, 1000);
-                
-            } catch (error) {
-                setProgress(0, 'Error occurred');
-                hideProgress();
-                showError(`Failed to extract content: ${error.message}`);
+function extractFirstUrl(text) {
+    if (!text) return null;
+    const match = text.match(/https?:\/\/[^\s"'<>]+/i);
+    if (!match) return null;
+    return match[0].replace(/["')\],.?!]+$/, '');
+}
+
+async function runTask() {
+    const instruction = (taskInputElement?.value || '').trim();
+    if (!instruction) {
+        showError('Please provide an instruction that includes at least one URL.');
+        return;
+    }
+
+    const targetUrl = extractFirstUrl(instruction);
+    if (!targetUrl) {
+        showError('Please include at least one valid URL in your instruction.');
+        return;
+    }
+
+    if (!isValidUrl(targetUrl)) {
+        showError('The URL detected in your instruction is not valid. Please double-check it.');
+        return;
+    }
+
+    appendConversationMessage('user', renderUserMessage(instruction));
+    if (taskInputElement) {
+        taskInputElement.value = '';
+    }
+    pendingAssistantMessage = appendConversationMessage('assistant', renderAssistantLoading('Extracting page content...'));
+
+    extractedData = null;
+    updateLlmSendAvailability();
+
+    hideMessages();
+    showProgress();
+    setProgress(0, 'Preparing to extract content...');
+
+    try {
+        const content = await extractContent(targetUrl);
+        const record = { ...content, instruction };
+        const extractionIndex = extractionHistory.push(record) - 1;
+        record.extractionIndex = extractionIndex;
+        extractedData = record;
+        updateLlmSendAvailability();
+
+        const methodElement = document.getElementById('extractionMethod');
+        if (methodElement) {
+            if (record.extractionMethod) {
+                methodElement.textContent = `Method: ${record.extractionMethod}`;
+                methodElement.style.display = 'block';
+            } else {
+                methodElement.style.display = 'none';
             }
         }
 
-        async function extractContent(url) {
-            setProgress(20, 'Fetching page content...');
-            
-            let html = '';
-            
-            try {
-                // Try multiple methods to get content
-                html = await tryMultipleExtractionMethods(url);
-            } catch (error) {
-                throw new Error(`Failed to extract content: ${error.message}`);
-            }
-            
-            setProgress(40, 'Parsing HTML structure...');
-            
-            // Parse HTML
-            const parser = new DOMParser();
+        setProgress(100, 'Extraction complete!');
+        hideProgress();
+        showSuccess('Content extracted successfully!');
+
+        if (pendingAssistantMessage) {
+            updateConversationMessage(pendingAssistantMessage, renderAssistantLoading('Generating LLM response...'));
+        }
+
+        const modelSelect = document.getElementById('ollamaModel');
+        if (modelSelect && modelSelect.value) {
+            setLlmStatus('info', 'Generating response with your Ollama model...');
+            await sendToLLM(true, pendingAssistantMessage, extractionIndex);
+        } else {
+            const placeholder = '<p>Extraction complete. Choose an Ollama model under Settings, then click “Send to Ollama”.</p>';
+            updateConversationMessage(pendingAssistantMessage, renderAssistantResponse(placeholder, record, extractionIndex));
+            setLlmStatus('warning', 'Extraction ready. Choose an Ollama model and click “Send to Ollama” to continue.');
+        }
+    } catch (error) {
+        setProgress(0, 'Error occurred');
+        hideProgress();
+        const message = `<div class="assistant-error">${escapeHtml(error.message)}</div>`;
+        updateConversationMessage(pendingAssistantMessage, message);
+        showError(`Failed to complete the task: ${error.message}`);
+    } finally {
+        pendingAssistantMessage = null;
+    }
+}
+
+async function extractContent(url) {
+    const parser = new DOMParser();
+    setProgress(25, 'Launching Playwright browser...');
+
+    try {
+        const html = await extractWithPlaywright(url);
+        if (html && html.length > 0) {
             const doc = parser.parseFromString(html, 'text/html');
-            
-            setProgress(60, 'Extracting content...');
-            
-            // Check for JavaScript-required pages
-            if (isJavaScriptRequired(doc)) {
-                const useBrowser = document.getElementById('useBrowser').checked;
-                setProgress(65, 'JavaScript detected, evaluating browser rendering...');
-                
-                if (useBrowser) {
-                    try {
-                        const browserHtml = await extractWithPlaywright(url);
-                        if (browserHtml) {
-                            const browserDoc = parser.parseFromString(browserHtml, 'text/html');
-                            return processExtractedContent(url, browserDoc, 'playwright');
-                        }
-                    } catch (browserError) {
-                        console.warn('Playwright extraction failed:', browserError);
-                        showWarning(`Playwright extraction failed: ${browserError.message}`);
-                    }
-                }
-                
-                // Try alternative methods for JS-heavy pages
-                setProgress(70, 'Trying alternative text-only sources...');
-                
-                try {
-                    html = await tryTextExtractionServices(url);
-                    if (html) {
-                        const altDoc = parser.parseFromString(html, 'text/html');
-                        return processExtractedContent(url, altDoc, useBrowser ? 'playwright-fallback' : 'alternative');
-                    }
-                } catch (textError) {
-                    console.warn('Text extraction services failed:', textError);
-                }
-                
-                // Try to get cached version from Wayback Machine
-                try {
-                    html = await tryWaybackMachine(url);
-                    if (html) {
-                        const waybackDoc = parser.parseFromString(html, 'text/html');
-                        return processExtractedContent(url, waybackDoc, 'cached');
-                    }
-                } catch (waybackError) {
-                    console.warn('Wayback Machine failed:', waybackError);
-                }
-                
-                throw new Error('This page requires JavaScript to load content. The tool tried browser automation and alternative extraction methods but could not retrieve complete content. Suggestions:\n\n1. Ensure the Playwright server is running and try again\n2. Enable JavaScript in your browser and retry manually\n3. Use browser automation tools like Selenium or Puppeteer\n4. Copy content directly from the page in your browser');
-            }
-            
-            return processExtractedContent(url, doc);
+            setProgress(70, 'Processing content...');
+            return processExtractedContent(url, doc, 'playwright');
+        }
+    } catch (error) {
+        console.warn('Playwright extraction failed:', error);
+        showWarning(`Playwright extraction failed: ${error.message}`);
+    }
+
+    setProgress(55, 'Falling back to static extraction...');
+    try {
+        const html = await tryMultipleExtractionMethods(url);
+        if (html) {
+            const doc = parser.parseFromString(html, 'text/html');
+            setProgress(70, 'Processing content...');
+            return processExtractedContent(url, doc, 'direct');
+        }
+    } catch (error) {
+        console.warn('Static extraction failed:', error);
+    }
+
+    throw new Error('Unable to retrieve content from the URL. Playwright and fallback methods failed.');
+}
+
+async function sendToLLM(autoTriggered = false, messageEl = null, extractionIndex = extractedData?.extractionIndex) {
+    const currentExtraction = typeof extractionIndex === 'number'
+        ? extractionHistory[extractionIndex]
+        : extractedData;
+
+    if (!currentExtraction) {
+        showError('Extract content before sending anything to the LLM.');
+        return;
+    }
+
+    const modelSelect = document.getElementById('ollamaModel');
+    if (!modelSelect || !modelSelect.value) {
+        showError('Select an Ollama model before sending.');
+        return;
+    }
+
+    let assistantMessage = messageEl;
+    if (!assistantMessage) {
+        assistantMessage = appendConversationMessage('assistant', renderAssistantLoading('Generating LLM response...'));
+    } else {
+        updateConversationMessage(assistantMessage, renderAssistantLoading('Generating LLM response...'));
+    }
+
+    const selectedFormat = document.querySelector('input[name="llmPayloadFormat"]:checked')?.value || 'markdown';
+    const sendButton = document.getElementById('llmSendButton');
+
+    const formattedContent = selectedFormat === 'json'
+        ? JSON.stringify(currentExtraction, null, 2)
+        : convertToMarkdown(currentExtraction);
+
+    const basePrompt = currentExtraction.instruction || 'Provide a concise summary of the extracted content.';
+    const assembledPrompt = `${basePrompt}
+
+---
+Extracted content (${selectedFormat.toUpperCase()}):
+${formattedContent}
+
+${LLM_RESPONSE_FORMAT_HINT}`;
+
+    showLlmProgress('Preparing payload...', 15);
+    if (!autoTriggered) {
+        setLlmStatus('', '');
+    }
+    if (sendButton) {
+        sendButton.disabled = true;
+    }
+
+    let baseUrl = 'http://localhost:11434';
+    try {
+        baseUrl = getOllamaBaseUrl();
+    } catch (error) {
+        hideLlmProgress();
+        setLlmStatus('error', error.message);
+        const errorHtml = `<div class="assistant-error">${escapeHtml(error.message)}</div>`;
+        updateConversationMessage(
+            assistantMessage,
+            renderAssistantResponse(errorHtml, currentExtraction, extractionIndex)
+        );
+        if (sendButton) {
+            sendButton.disabled = false;
+        }
+        return;
+    }
+
+    try {
+        updateLlmProgress(35, `Sending request to ${baseUrl}...`);
+        const response = await fetch(`${baseUrl}/api/generate`, {
+            method: 'POST',
+            mode: 'cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                model: modelSelect.value,
+                prompt: assembledPrompt,
+                stream: false
+            })
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Ollama responded with ${response.status}: ${errorText}`);
         }
 
-        async function tryMultipleExtractionMethods(url) {
+        updateLlmProgress(70, 'Waiting for LLM response...');
+        const result = await response.json();
+        const message = result?.response || result?.message || '(No response text received.)';
+        updateLlmProgress(100, 'LLM response received.');
+
+        const llmHtml = renderLlmOutput(message);
+        updateConversationMessage(
+            assistantMessage,
+            renderAssistantResponse(llmHtml, currentExtraction, extractionIndex)
+        );
+        setLlmStatus('success', `Response generated with ${modelSelect.value}.`);
+    } catch (error) {
+        console.error('Ollama request failed:', error);
+        updateLlmProgress(0, 'LLM request failed.');
+        let errorMessage = error?.message || 'Failed to reach Ollama.';
+        if (error instanceof TypeError || /Failed to fetch/i.test(errorMessage)) {
+            const currentOrigin = window.location.origin || 'file://';
+            errorMessage = [
+                'Browser blocked the request to Ollama (likely CORS).',
+                'Restart Ollama with CORS enabled, for example:',
+                '  export OLLAMA_ORIGINS="*"',
+                '  ollama serve',
+                `or allow the UI origin explicitly: OLLAMA_ORIGINS="${currentOrigin}"`,
+                `Attempted endpoint: ${baseUrl}/api/generate`
+            ].join('\n');
+        }
+        setLlmStatus('error', errorMessage);
+        const errorHtml = `<div class="assistant-error">${escapeHtml(errorMessage)}</div>`;
+        updateConversationMessage(
+            assistantMessage,
+            renderAssistantResponse(errorHtml, currentExtraction, extractionIndex)
+        );
+        showError(`LLM request failed: ${errorMessage}`);
+    } finally {
+        setTimeout(() => hideLlmProgress(), 1500);
+        if (sendButton) {
+            sendButton.disabled = !(currentExtraction && modelSelect && modelSelect.value);
+        }
+        updateLlmSendAvailability();
+    }
+}
+
+function setLlmStatus(type, message) {
+    if (!conversationEl) {
+        return;
+    }
+
+    const trimmedMessage = (message || '').trim();
+    if (!trimmedMessage) {
+        if (statusMessageEl && conversationEl.contains(statusMessageEl)) {
+            conversationEl.removeChild(statusMessageEl);
+        }
+        statusMessageEl = null;
+        return;
+    }
+
+    if (!statusMessageEl || !conversationEl.contains(statusMessageEl)) {
+        statusMessageEl = appendConversationMessage('assistant status', '');
+        if (!statusMessageEl) {
+            return;
+        }
+        statusMessageEl.classList.add('status');
+    }
+
+    // Ensure the status message stays at the end of the conversation
+    try {
+        conversationEl.appendChild(statusMessageEl);
+    } catch (error) {
+        console.warn('Unable to reposition status message:', error);
+    }
+
+    const bubble = statusMessageEl.querySelector('.conversation-bubble');
+    if (!bubble) {
+        return;
+    }
+
+    const safeType = (type || '').toLowerCase();
+    statusMessageEl.classList.remove('status-info', 'status-success', 'status-warning', 'status-error');
+    if (safeType) {
+        statusMessageEl.classList.add(`status-${safeType}`);
+    }
+
+    const safeHtml = escapeHtml(trimmedMessage).replace(/\n/g, '<br>');
+    bubble.innerHTML = `<div class="status-message-text">${safeHtml}</div>`;
+    requestAnimationFrame(scrollConversationToEnd);
+}
+
+function showLlmProgress(message, percent = 0) {
+    const progressElement = document.getElementById('llmProgress');
+    if (!progressElement) {
+        return;
+    }
+    progressElement.style.display = 'block';
+    updateLlmProgress(percent, message);
+}
+
+function updateLlmProgress(percent, message) {
+    const fillElement = document.getElementById('llmProgressFill');
+    const statusText = document.getElementById('llmStatusText');
+    if (fillElement) {
+        const clamped = Math.max(0, Math.min(100, percent));
+        fillElement.style.width = `${clamped}%`;
+    }
+    if (statusText) {
+        statusText.textContent = message || '';
+    }
+}
+
+function hideLlmProgress() {
+    const progressElement = document.getElementById('llmProgress');
+    if (!progressElement) {
+        return;
+    }
+    progressElement.style.display = 'none';
+    updateLlmProgress(0, '');
+}
+
+function normalizeOllamaBaseUrl(value) {
+    if (!value) {
+        return 'http://localhost:11434';
+    }
+    let trimmed = value.trim();
+    if (!/^https?:\/\//i.test(trimmed)) {
+        trimmed = `http://${trimmed}`;
+    }
+    try {
+        const parsed = new URL(trimmed);
+        return parsed.origin;
+    } catch (error) {
+        console.warn('Invalid Ollama server URL provided; defaulting to localhost.', error);
+        return 'http://localhost:11434';
+    }
+}
+
+function getOllamaBaseUrl() {
+    const input = document.getElementById('ollamaServer');
+    if (!input) {
+        throw new Error('Ollama server input not found.');
+    }
+    const normalized = normalizeOllamaBaseUrl(input.value);
+    input.value = normalized;
+    return normalized;
+}
+
+function describeOllamaModel(model) {
+    if (!model) {
+        return null;
+    }
+
+    const primary = (model.model || model.name || model.tag || '').trim();
+    if (!primary) {
+        return null;
+    }
+
+    return { value: primary, label: primary };
+}
+
+function buildDefaultModelOptions() {
+    return DEFAULT_OLLAMA_MODELS.map(name => ({ value: name, label: name }));
+}
+
+function dedupeModelOptions(options) {
+    const map = new Map();
+    options.forEach(option => {
+        if (!option || !option.value) {
+            return;
+        }
+        if (!map.has(option.value)) {
+            map.set(option.value, option);
+        }
+    });
+    return Array.from(map.values());
+}
+
+function prioritizeModelOptions(options) {
+    return options
+        .slice()
+        .sort((a, b) => {
+            if (a.value === PREFERRED_OLLAMA_MODEL) return -1;
+            if (b.value === PREFERRED_OLLAMA_MODEL) return 1;
+            const aCloud = /cloud/i.test(a.value);
+            const bCloud = /cloud/i.test(b.value);
+            if (aCloud && !bCloud) return -1;
+            if (!aCloud && bCloud) return 1;
+            return a.label.localeCompare(b.label);
+        });
+}
+
+function hasModelOption(options, value) {
+    return options.some(option => option.value === value || option.label === value);
+}
+
+function formatBytes(value) {
+    if (!Number.isFinite(value)) {
+        return null;
+    }
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    let size = value;
+    let index = 0;
+    while (size >= 1024 && index < units.length - 1) {
+        size /= 1024;
+        index += 1;
+    }
+    const precision = size >= 100 || index === 0 ? 0 : 1;
+    return `${size.toFixed(precision)} ${units[index]}`;
+}
+
+async function pullOllamaModel(baseUrl, modelName, onUpdate) {
+    const response = await fetch(`${baseUrl}/api/pull`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: modelName, stream: true })
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText || 'Request failed'}`);
+    }
+
+    const processEvent = event => {
+        if (!event) {
+            return { success: false };
+        }
+        if (event.error) {
+            throw new Error(event.error);
+        }
+        if (typeof onUpdate === 'function') {
+            try {
+                onUpdate(event);
+            } catch (callbackError) {
+                console.warn('Ollama pull status callback error:', callbackError);
+            }
+        }
+
+        const statusText = (event.status || '').toLowerCase();
+        let isSuccess = /success|already exists/.test(statusText);
+
+        const completedValue = Number(event.completed);
+        const totalValue = Number(event.total);
+        if (!isSuccess && Number.isFinite(completedValue) && Number.isFinite(totalValue) && totalValue > 0) {
+            isSuccess = completedValue >= totalValue;
+        }
+
+        return { success: isSuccess };
+    };
+
+    let pullCompleted = false;
+
+    if (response.body && response.body.getReader) {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+            const { value, done } = await reader.read();
+            if (done) {
+                break;
+            }
+            buffer += decoder.decode(value, { stream: true });
+
+            let newlineIndex = buffer.indexOf('\n');
+            while (newlineIndex !== -1) {
+                const line = buffer.slice(0, newlineIndex).trim();
+                buffer = buffer.slice(newlineIndex + 1);
+                if (line) {
+                    try {
+                        const event = JSON.parse(line);
+                        const { success } = processEvent(event);
+                        pullCompleted = pullCompleted || success;
+                    } catch (parseError) {
+                        console.warn('Failed to parse Ollama pull message:', parseError, line);
+                    }
+                }
+                newlineIndex = buffer.indexOf('\n');
+            }
+        }
+
+        const remaining = buffer.trim();
+        if (remaining) {
+            try {
+                const event = JSON.parse(remaining);
+                const { success } = processEvent(event);
+                pullCompleted = pullCompleted || success;
+            } catch (parseError) {
+                console.warn('Failed to parse final Ollama pull message:', parseError, remaining);
+            }
+        }
+    } else {
+        const text = await response.text();
+        text.split(/\r?\n/).forEach(line => {
+            const trimmed = line.trim();
+            if (!trimmed) {
+                return;
+            }
+            try {
+                const event = JSON.parse(trimmed);
+                const { success } = processEvent(event);
+                pullCompleted = pullCompleted || success;
+            } catch (parseError) {
+                console.warn('Failed to parse Ollama pull message:', parseError, trimmed);
+            }
+        });
+    }
+
+    if (!pullCompleted) {
+        throw new Error('Model pull did not complete successfully.');
+    }
+}
+
+async function ensurePreferredModelAvailable(baseUrl, triggeredByUser) {
+    const modelName = PREFERRED_OLLAMA_MODEL;
+    setLlmStatus('info', `Default Ollama model missing. Pulling ${modelName}...`);
+
+    const updateStatus = event => {
+        if (!event) {
+            return;
+        }
+        const parts = [];
+        if (event.status) {
+            parts.push(event.status);
+        }
+        const completedValue = Number(event.completed);
+        const totalValue = Number(event.total);
+        if (Number.isFinite(completedValue) && Number.isFinite(totalValue) && totalValue > 0) {
+            const percent = Math.max(0, Math.min(100, Math.round((completedValue / totalValue) * 100)));
+            const completed = formatBytes(completedValue);
+            const total = formatBytes(totalValue);
+            if (completed && total) {
+                parts.push(`${percent}% (${completed} / ${total})`);
+            } else {
+                parts.push(`${percent}%`);
+            }
+        } else if (Number.isFinite(completedValue)) {
+            const downloaded = formatBytes(completedValue);
+            if (downloaded) {
+                parts.push(`${downloaded} downloaded`);
+            }
+        }
+
+        const detail = parts.join(' - ') || 'Working...';
+        setLlmStatus('info', `Pulling ${modelName}: ${detail}`);
+    };
+
+    try {
+        await pullOllamaModel(baseUrl, modelName, updateStatus);
+        setLlmStatus('success', `Model ${modelName} is ready to use.`);
+        if (triggeredByUser) {
+            showSuccess(`Ollama model ${modelName} pulled successfully.`);
+        }
+        return true;
+    } catch (error) {
+        console.error('Failed to pull preferred Ollama model:', error);
+        setLlmStatus('error', `Unable to pull ${modelName}: ${error.message}`);
+        if (triggeredByUser) {
+            showError(`Failed to pull ${modelName}: ${error.message}`);
+        }
+        return false;
+    }
+}
+
+async function loadOllamaModels(triggeredByUser = false, skipEnsurePreferred = false) {
+    const modelSelect = document.getElementById('ollamaModel');
+    if (!modelSelect) {
+        return;
+    }
+
+    const sendButton = document.getElementById('llmSendButton');
+    if (sendButton) {
+        sendButton.disabled = true;
+    }
+
+    if (triggeredByUser) {
+        setLlmStatus('info', 'Refreshing model list from Ollama...');
+    }
+
+    let models = [];
+    let baseUrl = '';
+    try {
+        baseUrl = getOllamaBaseUrl();
+        if (triggeredByUser) {
+            setLlmStatus('info', `Connecting to ${baseUrl}...`);
+        }
+
+        const response = await fetch(`${baseUrl}/api/tags`);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+        if (Array.isArray(data.models)) {
+            models = data.models
+                .map(describeOllamaModel)
+                .filter(Boolean);
+        } else {
+            models = [];
+        }
+
+        if (models.length === 0) {
+            throw new Error('No models reported by Ollama.');
+        }
+
+        models = prioritizeModelOptions(dedupeModelOptions(models));
+
+        if (!skipEnsurePreferred && baseUrl && !hasModelOption(models, PREFERRED_OLLAMA_MODEL)) {
+            const ensured = await ensurePreferredModelAvailable(baseUrl, triggeredByUser);
+            if (ensured) {
+                return loadOllamaModels(triggeredByUser, true);
+            }
+        }
+
+        const previewList = models.slice(0, 6).map(model => model.value).join(', ');
+        const previewSuffix = models.length > 6 ? ' …' : '';
+        setLlmStatus(
+            'success',
+            `Loaded ${models.length} model${models.length === 1 ? '' : 's'} from Ollama: ${previewList}${previewSuffix}`
+        );
+    } catch (error) {
+        console.warn('Unable to load Ollama models:', error);
+        if (triggeredByUser) {
+            setLlmStatus('error', `Failed to refresh models: ${error.message}`);
+        } else {
+            setLlmStatus('warning', 'Could not reach Ollama. Using default model list.');
+        }
+        models = prioritizeModelOptions(dedupeModelOptions(buildDefaultModelOptions()));
+    }
+
+    if (models.length === 0) {
+        models = prioritizeModelOptions(dedupeModelOptions(buildDefaultModelOptions()));
+    }
+
+    modelSelect.innerHTML = models
+        .map(model => `<option value="${model.value}">${model.label}</option>`)
+        .join('');
+
+    const preferred = modelSelect.dataset.preferredModel;
+    if (preferred) {
+        const preferredOption = models.find(model => model.value === preferred || model.label === preferred);
+        if (preferredOption) {
+            modelSelect.value = preferredOption.value;
+        }
+    }
+    delete modelSelect.dataset.preferredModel;
+
+    if (!modelSelect.value && hasModelOption(models, PREFERRED_OLLAMA_MODEL)) {
+        modelSelect.value = PREFERRED_OLLAMA_MODEL;
+    }
+
+    if (!modelSelect.value && models.length > 0) {
+        modelSelect.value = models[0].value;
+    }
+
+    setTimeout(() => updateLlmSendAvailability(), 0);
+}
+
+function updateLlmSendAvailability() {
+    const sendButton = document.getElementById('llmSendButton');
+    const modelSelect = document.getElementById('ollamaModel');
+    if (!sendButton || !modelSelect) {
+        return;
+    }
+    const hasModel = Boolean(modelSelect.value);
+    sendButton.disabled = !(hasModel && extractedData);
+}
+
+
+async function tryMultipleExtractionMethods(url) {
             let html = '';
             const sanitizedUrl = url.trim();
             const strippedUrl = sanitizedUrl.replace(/^https?:\/\//, '');
@@ -1003,7 +2192,7 @@ PORT=4000 node extract-server.js</code></pre>
                 <p>The UI will be served at <code>http://localhost:8080</code> and will reach the helper at <code>http://playwright-extractor:3050</code> inside the Docker network.</p>
                 
                 <h4>Step 5: Try Again</h4>
-                <p>Once the server is running, update the "Playwright Server URL" field if needed (current value: <code>${baseForInput}</code>), check "Use Real Browser" and try extracting again.</p>
+                <p>Once the server is running, update the "Playwright Server URL" field if needed (current value: <code>${baseForInput}</code>) and try extracting again.</p>
                 
                 <p><strong>Note:</strong> The first time you run this, Playwright will download Chromium browsers automatically.</p>
             `;
@@ -1332,116 +2521,16 @@ PORT=4000 node extract-server.js</code></pre>
             return markdown;
         }
 
-        function showResults() {
-            document.getElementById('resultsSection').style.display = 'block';
-            
-            // Show extraction method details
-            const methodElement = document.getElementById('extractionMethod');
-            methodElement.style.display = 'none';
-            if (extractedData.extractionMethod) {
-                switch (extractedData.extractionMethod) {
-                    case 'playwright':
-                        methodElement.innerHTML = `✅ <strong>Playwright Browser Rendering</strong><br>JavaScript was executed in a headless browser before extraction.`;
-                        methodElement.style.display = 'block';
-                        break;
-                    case 'playwright-fallback':
-                        methodElement.innerHTML = `⚠️ <strong>Playwright Unavailable</strong><br>Attempted browser rendering, but fell back to text-only services. Dynamic content may be missing.`;
-                        methodElement.style.display = 'block';
-                        break;
-                    case 'cached':
-                        methodElement.innerHTML = `ℹ️ <strong>Cached Copy Used</strong><br>Content came from Google Webcache/Wayback. It may differ from the live site.`;
-                        methodElement.style.display = 'block';
-                        break;
-                    case 'alternative':
-                        methodElement.innerHTML = `⚠️ <strong>Alternative Extraction Method Used</strong><br>This page requires JavaScript. Content was extracted using text-only services. Some dynamic content may be missing.`;
-                        methodElement.style.display = 'block';
-                        break;
-                    default:
-                        methodElement.innerHTML = `ℹ️ <strong>Extraction Method:</strong> ${extractedData.extractionMethod}`;
-                        methodElement.style.display = 'block';
-                }
+        function getExtractionDataByIndex(index) {
+            if (typeof index === 'number' && index >= 0 && index < extractionHistory.length) {
+                return extractionHistory[index];
             }
-            
-            // Display stats
-            displayStats(extractedData);
-            
-            // Display content in different formats
-            document.getElementById('extractedContent').textContent = formatForLLM(extractedData);
-            document.getElementById('structuredContent').textContent = JSON.stringify(extractedData.structure, null, 2);
-            document.getElementById('markdownContent').textContent = convertToMarkdown(extractedData);
-            document.getElementById('jsonContent').textContent = JSON.stringify(extractedData, null, 2);
+            return extractedData;
         }
 
-        function displayStats(data) {
-            const stats = [
-                { label: 'Words', value: data.structure?.wordCount || 0 },
-                { label: 'Links', value: data.links?.length || 0 },
-                { label: 'Images', value: data.images?.length || 0 },
-                { label: 'Headings', value: data.structure?.headings?.length || 0 },
-                { label: 'Elements', value: data.structure?.elementCount || 0 },
-                { label: 'Content Size', value: `${(data.content?.length || 0).toLocaleString()} chars` }
-            ];
-
-            const statsGrid = document.getElementById('statsGrid');
-            statsGrid.innerHTML = stats.map(stat => `
-                <div class="stat-card">
-                    <div class="stat-value">${stat.value}</div>
-                    <div class="stat-label">${stat.label}</div>
-                </div>
-            `).join('');
-        }
-
-        function switchTab(button, tab) {
-            // Update tab buttons
-            document.querySelectorAll('.tab-button').forEach(btn => {
-                btn.classList.remove('active');
-            });
-            button.classList.add('active');
-
-            // Update tab content
-            document.querySelectorAll('.tab-content').forEach(content => {
-                content.classList.remove('active');
-            });
-            document.getElementById(`${tab}-tab`).classList.add('active');
-            
-            currentTab = tab;
-        }
-
-        async function copyMainContent() {
-            if (!extractedData) {
-                showError('No content to copy');
-                return;
-            }
-
-            const mainContent = extractedData.content || '';
-            if (!mainContent.trim()) {
-                showWarning('Main content is empty, nothing to copy.');
-                return;
-            }
-
-            try {
-                if (navigator.clipboard && navigator.clipboard.writeText) {
-                    await navigator.clipboard.writeText(mainContent);
-                } else {
-                    // Fallback for browsers without async clipboard support
-                    const textarea = document.createElement('textarea');
-                    textarea.value = mainContent;
-                    textarea.style.position = 'fixed';
-                    textarea.style.opacity = '0';
-                    document.body.appendChild(textarea);
-                    textarea.select();
-                    document.execCommand('copy');
-                    document.body.removeChild(textarea);
-                }
-                showSuccess('Main content copied to clipboard!');
-            } catch (error) {
-                console.error('Clipboard copy failed:', error);
-                showError('Failed to copy main content. Please copy manually.');
-            }
-        }
-
-        async function copyContent(format) {
-            if (!extractedData) {
+        async function copyExtractionContent(format, extractionIndex) {
+            const data = getExtractionDataByIndex(extractionIndex);
+            if (!data) {
                 showError('No content to copy');
                 return;
             }
@@ -1450,16 +2539,26 @@ PORT=4000 node extract-server.js</code></pre>
             let label = '';
 
             switch (format) {
+                case 'main': {
+                    const mainContent = data.content || '';
+                    if (!mainContent.trim()) {
+                        showWarning('Main content is empty, nothing to copy.');
+                        return;
+                    }
+                    content = mainContent;
+                    label = 'Main content';
+                    break;
+                }
                 case 'txt':
-                    content = formatForLLM(extractedData);
+                    content = formatForLLM(data);
                     label = 'Text';
                     break;
                 case 'md':
-                    content = convertToMarkdown(extractedData);
+                    content = convertToMarkdown(data);
                     label = 'Markdown';
                     break;
                 case 'json':
-                    content = JSON.stringify(extractedData, null, 2);
+                    content = JSON.stringify(data, null, 2);
                     label = 'JSON';
                     break;
                 case 'html':
@@ -1467,15 +2566,15 @@ PORT=4000 node extract-server.js</code></pre>
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>${extractedData.metadata?.title || 'Extracted Content'}</title>
+    <title>${data.metadata?.title || 'Extracted Content'}</title>
     <style>
         body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
         pre { background: #f5f5f5; padding: 15px; border-radius: 5px; overflow-x: auto; }
     </style>
 </head>
 <body>
-    <h1>${extractedData.metadata?.title || 'Extracted Content'}</h1>
-    <pre>${formatForLLM(extractedData)}</pre>
+    <h1>${data.metadata?.title || 'Extracted Content'}</h1>
+    <pre>${formatForLLM(data)}</pre>
 </body>
 </html>`;
                     label = 'HTML';
@@ -1485,13 +2584,8 @@ PORT=4000 node extract-server.js</code></pre>
                     return;
             }
 
-            if (!content) {
-                showWarning(`No ${label.toLowerCase()} content available to copy.`);
-                return;
-            }
-
             try {
-                if (navigator.clipboard?.writeText) {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
                     await navigator.clipboard.writeText(content);
                 } else {
                     const textarea = document.createElement('textarea');
@@ -1522,7 +2616,6 @@ PORT=4000 node extract-server.js</code></pre>
 
         function showProgress() {
             document.getElementById('progressSection').style.display = 'block';
-            document.getElementById('resultsSection').style.display = 'none';
         }
 
         function hideProgress() {
@@ -1567,13 +2660,6 @@ PORT=4000 node extract-server.js</code></pre>
             document.getElementById('warningMessage').style.display = 'none';
             document.getElementById('extractionMethod').style.display = 'none';
         }
-
-        // Handle Enter key in URL input
-        document.getElementById('urlInput').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                processUrl();
-            }
-        });
     </script>
 </body>
 </html>
