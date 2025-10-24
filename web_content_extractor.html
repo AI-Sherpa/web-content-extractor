@@ -758,12 +758,12 @@ function renderExtractionDetails(data, extractionIndex) {
 
     return `
         <div class="assistant-extraction"${indexAttr}>
+            ${methodLabel}
             <button class="assistant-extraction-toggle" type="button" data-target="${detailId}">
                 <span>Extraction Details</span>
                 <span class="assistant-extraction-icon">▸</span>
             </button>
             <div class="assistant-extraction-body" id="${detailId}">
-                ${methodLabel}
                 <div class="assistant-tabs" role="tablist">
                     <button type="button" class="assistant-tab-button active" data-tab="outline">Formatted Text</button>
                     <button type="button" class="assistant-tab-button" data-tab="structured">Structured Data</button>
@@ -1209,12 +1209,7 @@ async function runTask() {
 
         const methodElement = document.getElementById('extractionMethod');
         if (methodElement) {
-            if (record.extractionMethod) {
-                methodElement.textContent = `Method: ${record.extractionMethod}`;
-                methodElement.style.display = 'block';
-            } else {
-                methodElement.style.display = 'none';
-            }
+            methodElement.style.display = 'none';
         }
 
         setProgress(100, 'Extraction complete!');
