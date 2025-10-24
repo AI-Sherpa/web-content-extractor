@@ -364,11 +364,18 @@
             line-height: 1.45;
         }
 
+        .assistant-preview-header,
         .assistant-downloads {
             display: flex;
             flex-wrap: wrap;
             gap: 12px;
             margin-top: 18px;
+            align-items: center;
+            justify-content: flex-end;
+        }
+
+        .assistant-preview-header {
+            margin-top: 0;
         }
 
         .assistant-download-button {
@@ -402,6 +409,18 @@
         .assistant-download-button.secondary:hover {
             transform: translateY(-2px);
             box-shadow: 0 5px 15px rgba(72, 187, 120, 0.35);
+        }
+
+        .assistant-download-button.tertiary {
+            background: rgba(76, 81, 191, 0.1);
+            color: #4c51bf;
+            border: 1px solid rgba(76, 81, 191, 0.2);
+            padding: 8px 14px;
+        }
+
+        .assistant-download-button.tertiary:hover {
+            background: rgba(76, 81, 191, 0.18);
+            border-color: rgba(76, 81, 191, 0.45);
         }
 
         .conversation {
@@ -467,8 +486,45 @@
             white-space: pre-wrap;
         }
 
+        .assistant-llm-container {
+            position: relative;
+        }
+
+        .assistant-llm-copy,
+        .user-copy {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            padding: 4px 9px;
+            font-size: 11px;
+            font-weight: 600;
+            border-radius: 999px;
+            border: 1px solid rgba(76, 81, 191, 0.3);
+            background: rgba(76, 81, 191, 0.12);
+            color: #4c51bf;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+        }
+
+        .assistant-llm-copy:hover,
+        .user-copy:hover {
+            background: rgba(76, 81, 191, 0.2);
+            border-color: rgba(76, 81, 191, 0.5);
+            transform: translateY(-1px);
+        }
+
         .assistant-llm {
             white-space: normal;
+            padding-right: 48px;
+            padding-top: 6px;
+        }
+
+        .user-message-body {
+            position: relative;
+            padding-right: 44px;
         }
 
         .assistant-llm > * {
@@ -781,7 +837,15 @@ function updateConversationMessage(messageEl, html) {
 }
 
 function renderUserMessage(text) {
-    return `<pre>${escapeHtml(text)}</pre>`;
+    return `
+        <div class="user-message-body" data-user-message>
+            <button type="button" class="assistant-llm-copy user-copy" data-copy-user>
+                <span>📋</span>
+                <span>Copy</span>
+            </button>
+            <pre>${escapeHtml(text)}</pre>
+        </div>
+    `;
 }
 
 function renderAssistantLoading(text = 'Working…') {
@@ -791,7 +855,13 @@ function renderAssistantLoading(text = 'Working…') {
 function renderAssistantResponse(llmHtml, data, extractionIndex) {
     const detailsHtml = data ? renderExtractionDetails(data, extractionIndex) : '';
     return `
-        <div class="assistant-llm">${llmHtml}</div>
+        <div class="assistant-llm-container">
+            <button type="button" class="assistant-llm-copy" data-copy-llm>
+                <span>📋</span>
+                <span>Copy</span>
+            </button>
+            <div class="assistant-llm">${llmHtml}</div>
+        </div>
         ${detailsHtml}
     `;
 }
@@ -826,6 +896,11 @@ function renderExtractionDetails(data, extractionIndex) {
                     <button type="button" class="assistant-tab-button" data-tab="json">Full JSON</button>
                 </div>
                 <div class="assistant-tab-content active" data-tab="outline">
+                    <div class="assistant-preview-header">
+                        <button type="button" class="assistant-download-button tertiary" data-copy-format="outline" data-copy-label="Formatted Text">
+                            📋 Copy
+                        </button>
+                    </div>
                     <pre class="assistant-content-preview">${formattedOutline}</pre>
                 </div>
                 <div class="assistant-tab-content" data-tab="structured">
@@ -1167,6 +1242,24 @@ function scrollConversationToEnd() {
 
 if (conversationEl) {
     conversationEl.addEventListener('click', event => {
+        const copyLlmButton = event.target.closest('[data-copy-llm]');
+        if (copyLlmButton) {
+            const container = copyLlmButton.closest('.assistant-llm-container');
+            if (container) {
+                copyLlmResponse(container);
+            }
+            return;
+        }
+
+        const copyUserButton = event.target.closest('[data-copy-user]');
+        if (copyUserButton) {
+            const container = copyUserButton.closest('.user-message-body');
+            if (container) {
+                copyUserMessage(container);
+            }
+            return;
+        }
+
         const toggleButton = event.target.closest('.assistant-extraction-toggle');
         if (toggleButton) {
             const container = toggleButton.closest('.assistant-extraction');
@@ -1198,7 +1291,10 @@ if (conversationEl) {
         const copyButton = event.target.closest('.assistant-download-button');
         if (copyButton) {
             const container = copyButton.closest('.assistant-extraction');
-            const format = copyButton.dataset.copyFormat;
+            let format = copyButton.dataset.copyFormat;
+            if (format === 'outline') {
+                format = 'txt';
+            }
             const index = container && container.dataset.extractionIndex !== undefined
                 ? Number(container.dataset.extractionIndex)
                 : undefined;
@@ -2571,17 +2667,85 @@ PORT=4000 node extract-server.js</code></pre>
             return markdown;
         }
 
-        function getExtractionDataByIndex(index) {
-            if (typeof index === 'number' && index >= 0 && index < extractionHistory.length) {
-                return extractionHistory[index];
-            }
-            return extractedData;
-        }
+function getExtractionDataByIndex(index) {
+    if (typeof index === 'number' && index >= 0 && index < extractionHistory.length) {
+        return extractionHistory[index];
+    }
+    return extractedData;
+}
 
-        async function copyExtractionContent(format, extractionIndex) {
-            const data = getExtractionDataByIndex(extractionIndex);
-            if (!data) {
-                showError('No content to copy');
+async function copyLlmResponse(container) {
+    const contentEl = container?.querySelector('.assistant-llm');
+    if (!contentEl) {
+        showWarning('Nothing to copy from the LLM response.');
+        return;
+    }
+
+    const text = contentEl.innerText.trim();
+    if (!text) {
+        showWarning('LLM response is empty, nothing to copy.');
+        return;
+    }
+
+    try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(text);
+        } else {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.focus();
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+        }
+        showSuccess('LLM response copied to clipboard!');
+    } catch (error) {
+        console.error('Failed to copy LLM response:', error);
+        showError('Could not copy the LLM response. Please copy it manually.');
+    }
+}
+
+async function copyUserMessage(container) {
+    const contentEl = container?.querySelector('pre');
+    if (!contentEl) {
+        showWarning('Nothing to copy from the instruction.');
+        return;
+    }
+
+    const text = contentEl.innerText.trim();
+    if (!text) {
+        showWarning('Instruction is empty, nothing to copy.');
+        return;
+    }
+
+    try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(text);
+        } else {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.focus();
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+        }
+        showSuccess('Instruction copied to clipboard!');
+    } catch (error) {
+        console.error('Failed to copy instruction:', error);
+        showError('Could not copy the instruction. Please copy it manually.');
+    }
+}
+
+async function copyExtractionContent(format, extractionIndex) {
+    const data = getExtractionDataByIndex(extractionIndex);
+    if (!data) {
+        showError('No content to copy');
                 return;
             }
 
