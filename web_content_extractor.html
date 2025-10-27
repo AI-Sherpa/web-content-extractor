@@ -7,781 +7,666 @@
     <link rel="icon" type="image/svg+xml" href="static/favicon.svg">
     <link rel="icon" type="image/png" href="static/favicon.png">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 5px;
-            color: #333;
-        }
-
-        .container {
-            max-width: 95vw;
-            margin: 0 auto;
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border-radius: 20px;
-            padding: 7.5px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-
-        h1 {
-            text-align: center;
-            color: #4a5568;
-            margin-bottom: 10px;
-            font-size: 2.5rem;
-        }
-
-        .subtitle {
-            text-align: center;
-            color: #718096;
-            margin-bottom: 30px;
-            font-size: 1.1rem;
-        }
-
-        .input-section {
-            background: #f7fafc;
-            padding: 6.25px;
-            border-radius: 15px;
-            margin-bottom: 25px;
-            border: 2px solid #e2e8f0;
-        }
-
-        .input-group {
-            display: flex;
-            gap: 20px;
-            margin-bottom: 20px;
-            align-items: flex-start;
-        }
-
-        .toggle-panel {
-            width: 100%;
-            background: #f7fafc;
-            border: 2px solid #e2e8f0;
-            border-radius: 15px;
-            overflow: hidden;
-            transition: box-shadow 0.3s ease;
-        }
-
-        .toggle-panel:not(.collapsed) {
-            box-shadow: 0 12px 30px rgba(79, 209, 197, 0.18);
-        }
-
-        .toggle-title {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-            padding: 4px 4.5px;
-            background: #edf2f7;
-            cursor: pointer;
-            font-weight: 600;
-            color: #4a5568;
-        }
-
-        .toggle-section {
-            padding: 4.5px;
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-        }
-
-        .toggle-section.collapsed {
-            display: none;
-        }
-
-        .toggle-grid {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .toggle-icon {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 28px;
-            height: 28px;
-            border-radius: 50%;
-            background: rgba(102, 126, 234, 0.12);
-            color: #4c51bf;
-            font-size: 14px;
-        }
-
-        .action-column {
-            flex: 0 0 320px;
-            display: flex;
-            flex-direction: column;
-            gap: 18px;
-        }
-
-        .task-input {
-            flex: 1;
-            padding: 3.75px;
-            border: 2px solid #cbd5e0;
-            border-radius: 10px;
-            font-size: 16px;
-            transition: all 0.3s ease;
-            resize: vertical;
-            min-height: 120px;
-        }
-
-        .task-input:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-        }
-
-        .process-button {
-            padding: 3.75px 7.5px;
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            color: white;
-            border: none;
-            border-radius: 10px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            min-width: 150px;
-            width: 100%;
-        }
-
-        .process-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
-        }
-
-        .process-button:disabled {
-            background: #cbd5e0;
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
-        }
-
-        .options {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-
-        .option-group {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .option-group label {
-            font-weight: 500;
-            color: #4a5568;
-        }
-
-        .option-group input[type="checkbox"] {
-            width: 20px;
-            height: 20px;
-            accent-color: #667eea;
-        }
-
-        .option-group input[type="number"] {
-            width: 80px;
-            padding: 2px;
-            border: 2px solid #cbd5e0;
-            border-radius: 5px;
-            font-size: 14px;
-        }
-
-        .option-group input[type="url"] {
-            flex: 1;
-            min-width: 200px;
-            padding: 2.5px;
-            border: 2px solid #cbd5e0;
-            border-radius: 5px;
-            font-size: 14px;
-        }
-
-        .option-group.option-group-wide {
-            flex-direction: column;
-            align-items: flex-start;
-        }
-
-        .option-group.option-group-wide input[type="url"] {
-            width: 100%;
-        }
-
-        .progress-section {
-            display: none;
-            background: #f7fafc;
-            padding: 5px;
-            border-radius: 15px;
-            margin-bottom: 25px;
-            border: 2px solid #e2e8f0;
-        }
-
-        .progress-bar {
-            width: 100%;
-            height: 20px;
-            background: #e2e8f0;
-            border-radius: 10px;
-            overflow: hidden;
-            margin-bottom: 10px;
-        }
-
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #48bb78, #38a169);
-            width: 0%;
-            transition: width 0.3s ease;
-            border-radius: 10px;
-        }
-
-        .status-text {
-            text-align: center;
-            color: #4a5568;
-            font-weight: 500;
-        }
-
-        .assistant-extraction {
-            margin-top: 18px;
-            border: 1px solid rgba(203, 213, 225, 0.8);
-            border-radius: 14px;
-            background: rgba(237, 242, 247, 0.9);
-            overflow: hidden;
-            padding: 4.5px;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .assistant-extraction-toggle {
-            width: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-            padding: 3px 4px;
-            background: #ffffff;
-            border: 1px solid #a3bffa;
-            border-radius: 12px;
-            font-weight: 600;
-            color: #2d3748;
-            cursor: pointer;
-            transition: background 0.2s ease, border-color 0.2s ease;
-        }
-
-        .assistant-extraction-toggle:hover {
-            background: rgba(102, 126, 234, 0.12);
-            border-color: #667eea;
-        }
-
-        .assistant-extraction-meta {
-            font-size: 14px;
-            color: #4a5568;
-            padding: 1.5px 2.5px;
-            background: rgba(102, 126, 234, 0.1);
-            border-radius: 999px;
-        }
-
-        .assistant-extraction-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-        }
-
-        .assistant-extraction-icon {
-            font-size: 14px;
-            color: #4c51bf;
-        }
-
-        .assistant-extraction-body {
-            display: none;
-            padding: 3.5px 4px;
-            border-top: 1px solid rgba(203, 213, 225, 0.6);
-            background: rgba(247, 250, 252, 0.94);
-        }
-
-        .assistant-extraction.open .assistant-extraction-body {
-            display: block;
-        }
-
-        .assistant-extraction-meta {
-            font-size: 13px;
-            color: #4a5568;
-            margin-bottom: 12px;
-        }
-
-        .assistant-tabs {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin-bottom: 12px;
-            border-bottom: 2px solid #e2e8f0;
-            padding-bottom: 4px;
-        }
-
-        .assistant-tab-button {
-            padding: 2.5px 4px;
-            background: none;
-            border: none;
-            border-bottom: 3px solid transparent;
-            color: #718096;
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .assistant-tab-button.active {
-            color: #4c51bf;
-            border-bottom-color: #4c51bf;
-        }
-
-        .assistant-tab-content {
-            display: none;
-        }
-
-        .assistant-tab-content.active {
-            display: block;
-        }
-
-        .assistant-content-preview {
-            background: white;
-            padding: 3.5px;
-            border-radius: 12px;
-            border: 1px solid #e2e8f0;
-            max-height: 320px;
-            overflow-y: auto;
-            white-space: pre-wrap;
-            font-family: 'Courier New', monospace;
-            font-size: 13px;
-            line-height: 1.45;
-        }
-
-        .assistant-preview-header,
-        .assistant-downloads {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 12px;
-            margin-top: 4.5px;
-            align-items: center;
-            justify-content: flex-end;
-        }
-
-        .assistant-preview-header {
-            margin-top: 0;
-        }
-
-        .assistant-download-button {
-            padding: 2.5px 4.5px;
-            border-radius: 8px;
-            border: none;
-            cursor: pointer;
-            font-size: 13px;
-            font-weight: 600;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            transition: all 0.2s ease;
-        }
-
-        .assistant-download-button.copy-main {
-            background: linear-gradient(135deg, #4299e1, #3182ce);
-            color: #ffffff;
-        }
-
-        .assistant-download-button.copy-main:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(66, 153, 225, 0.35);
-        }
-
-        .assistant-download-button.secondary {
-            background: linear-gradient(135deg, #48bb78, #38a169);
-            color: #ffffff;
-        }
-
-        .assistant-download-button.secondary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(72, 187, 120, 0.35);
-        }
-
-        .assistant-download-button.tertiary {
-            background: rgba(76, 81, 191, 0.1);
-            color: #4c51bf;
-            border: 1px solid rgba(76, 81, 191, 0.2);
-            padding: 2px 3.5px;
-        }
-
-        .assistant-download-button.tertiary:hover {
-            background: rgba(76, 81, 191, 0.18);
-            border-color: rgba(76, 81, 191, 0.45);
-        }
-
-        .conversation {
-            background: #f7fafc;
-            border: 2px solid #e2e8f0;
-            border-radius: 15px;
-            padding: 5px;
-            margin: 18.75px 0;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            max-height: 315px;
-            overflow-y: auto;
-        }
-
-        .conversation-message {
-            display: flex;
-            gap: 12px;
-        }
-
-        .conversation-message.user {
-            justify-content: flex-end;
-        }
-
-        .conversation-message.status .conversation-bubble {
-            background: #edf2f7;
-            border-color: #cbd5e0;
-            color: #2d3748;
-            font-weight: 500;
-        }
-
-        .conversation-message.status.status-info .conversation-bubble {
-            background: #ebf8ff;
-            border-color: #bee3f8;
-            color: #2b6cb0;
-        }
-
-        .conversation-message.status.status-success .conversation-bubble {
-            background: #f0fff4;
-            border-color: #c6f6d5;
-            color: #2f855a;
-        }
-
-        .conversation-message.status.status-warning .conversation-bubble {
-            background: #fefcbf;
-            border-color: #faf089;
-            color: #b7791f;
-        }
-
-        .conversation-message.status.status-error .conversation-bubble {
-            background: #fed7d7;
-            border-color: #feb2b2;
-            color: #c53030;
-        }
-
-        .conversation-bubble {
-            max-width: 100%;
-            border-radius: 14px;
-            padding: 0;
-            background: #edf2f7;
-            border: 1px solid #cbd5e0;
-            line-height: 1.125;
-            white-space: pre-wrap;
-        }
-
-        .assistant-llm-container {
-            position: relative;
-        }
-
-        .assistant-llm-copy,
-        .user-copy {
-            position: absolute;
-            top: 6px;
-            padding: 1px 2px;
-            font-size: 11px;
-            font-weight: 600;
-            border-radius: 999px;
-            border: 1px solid rgba(76, 81, 191, 0.3);
-            background: rgba(76, 81, 191, 0.12);
-            color: #4c51bf;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
-        }
-
-        .assistant-llm-copy {
-            right: 6px;
-        }
-
-        .user-copy {
-            left: 6px;
-        }
-
-        .assistant-llm-copy:hover,
-        .user-copy:hover {
-            background: rgba(76, 81, 191, 0.2);
-            border-color: rgba(76, 81, 191, 0.5);
-            transform: translateY(-1px);
-        }
-
-        .assistant-llm {
-            white-space: normal;
-            padding: 0;
-        }
-
-        .user-message-body {
-            position: relative;
-            padding: 0;
-        }
-
-        .assistant-llm > * {
-            margin-top: 0.6rem;
-            margin-bottom: 0.6rem;
-        }
-
-        .assistant-llm > *:first-child {
-            margin-top: 0;
-        }
-
-        .assistant-llm > *:last-child {
-            margin-bottom: 0;
-        }
-
-        .assistant-llm h1,
-        .assistant-llm h2,
-        .assistant-llm h3,
-        .assistant-llm h4,
-        .assistant-llm h5,
-        .assistant-llm h6 {
-            line-height: 1.25;
-        }
-
-        .assistant-llm ul,
-        .assistant-llm ol {
-            padding-left: 1.5rem;
-        }
-
-        .conversation-message.user .conversation-bubble {
-            background: #4c51bf;
-            color: #ffffff;
-            border-color: #434190;
-        }
-
-        .conversation-bubble .bubble-text {
-            background: transparent;
-            border: none;
-            white-space: pre-wrap;
-            margin: 0;
-            font-family: inherit;
-        }
-
-        .status-message-text {
-            font-size: 14px;
-            line-height: 1.45;
-            white-space: pre-wrap;
-        }
-
-        .assistant-loading-inline {
-            display: inline-flex;
-            align-items: center;
-            gap: 2px;
-        }
-
-        .assistant-loading-inline .dot {
-            width: 2px;
-            height: 2px;
-            background: #4c51bf;
-            border-radius: 50%;
-            animation: pulse 1.5s infinite ease-in-out;
-        }
-
-        .assistant-loading-inline .dot:nth-child(2) {
-            animation-delay: 0.2s;
-        }
-
-        .assistant-loading-inline .dot:nth-child(3) {
-            animation-delay: 0.4s;
-        }
-
-        @keyframes pulse {
-            0%, 80%, 100% { opacity: 0.2; transform: scale(0.8); }
-            40% { opacity: 1; transform: scale(1); }
-        }
-
-        .error-message {
-            background: #fed7d7;
-            color: #c53030;
-            padding: 3.75px;
-            border-radius: 10px;
-            border: 1px solid #fc8181;
-            margin-bottom: 20px;
-            display: none;
-        }
-
-        .success-message {
-            background: #c6f6d5;
-            color: #276749;
-            padding: 3.75px;
-            border-radius: 10px;
-            border: 1px solid #9ae6b4;
-            margin-bottom: 20px;
-            display: none;
-        }
-
-        .warning-message {
-            background: #fef5e7;
-            color: #d69e2e;
-            padding: 3.75px;
-            border-radius: 10px;
-            border: 1px solid #fbd38d;
-            margin-bottom: 20px;
-            display: none;
-        }
-
-        .extraction-method {
-            background: #e6fffa;
-            color: #0077b6;
-            padding: 2.5px;
-            border-radius: 8px;
-            border: 1px solid #81e6d9;
-            margin-bottom: 20px;
-            display: none;
-            font-size: 14px;
-        }
-
-        .loading-spinner {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #667eea;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-right: 10px;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        @media (max-width: 768px) {
-            .container {
-                padding: 20px;
-            }
-            
-            .input-group {
-                flex-direction: column;
-            }
-
-            .action-column {
-                width: 100%;
-            }
-            
-            .options {
-                grid-template-columns: 1fr;
-            }
-        }
+:root {
+    --sidebar-bg: #202123;
+    --sidebar-border: #2d2f34;
+    --chat-bg: #343541;
+    --chat-surface: #444654;
+    --chat-surface-user: #2b2c34;
+    --bubble-border: rgba(255, 255, 255, 0.04);
+    --accent: #10a37f;
+    --accent-hover: #1a7f64;
+    --text-primary: #ececf1;
+    --text-muted: #8e909c;
+    --radius-lg: 18px;
+    --radius-sm: 10px;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Inter', 'Segoe UI', sans-serif;
+    background: var(--chat-bg);
+    color: var(--text-primary);
+    height: 100vh;
+    display: flex;
+}
+
+button {
+    font: inherit;
+}
+
+.app-shell {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+.app-sidebar {
+    width: 260px;
+    background: var(--sidebar-bg);
+    border-right: 1px solid var(--sidebar-border);
+    display: flex;
+    flex-direction: column;
+    padding: 24px 20px;
+    gap: 24px;
+    color: var(--text-primary);
+}
+
+.sidebar-header {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.sidebar-title {
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.sidebar-new {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--text-primary);
+    padding: 10px 14px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background 0.2s ease;
+    text-align: left;
+}
+
+.sidebar-new:hover {
+    background: rgba(255, 255, 255, 0.16);
+}
+
+.sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.sidebar-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.sidebar-list li {
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.app-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: var(--chat-bg);
+}
+
+.chat-header {
+    padding: 24px 32px;
+    border-bottom: 1px solid var(--sidebar-border);
+}
+
+.chat-header-title {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.brand-mark {
+    font-size: 28px;
+}
+
+.chat-header-title h1 {
+    font-size: 1.6rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+}
+
+.chat-header-title p {
+    color: var(--text-muted);
+    font-size: 0.95rem;
+}
+
+.system-messages {
+    padding: 16px 32px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.system-messages > div {
+    display: none;
+    padding: 12px 16px;
+    border-radius: var(--radius-sm);
+    border: 1px solid transparent;
+}
+
+.error-message {
+    background: rgba(239, 68, 68, 0.12);
+    border-color: rgba(239, 68, 68, 0.35);
+    color: #fca5a5;
+}
+
+.warning-message {
+    background: rgba(234, 179, 8, 0.12);
+    border-color: rgba(234, 179, 8, 0.35);
+    color: #facc15;
+}
+
+.success-message {
+    background: rgba(16, 163, 127, 0.12);
+    border-color: rgba(16, 163, 127, 0.35);
+    color: #6ee7b7;
+}
+
+.extraction-method {
+    background: rgba(79, 70, 229, 0.12);
+    border-color: rgba(79, 70, 229, 0.35);
+    color: #a5b4fc;
+}
+
+.chat-scroll {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    padding: 24px 32px;
+}
+
+.conversation {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.conversation-message {
+    display: flex;
+    gap: 12px;
+}
+
+.conversation-message.user {
+    justify-content: flex-end;
+}
+
+.conversation-bubble {
+    max-width: min(680px, 100%);
+    border-radius: var(--radius-lg);
+    padding: 16px 20px;
+    background: var(--chat-surface);
+    border: 1px solid var(--bubble-border);
+    line-height: 1.58;
+    font-size: 0.98rem;
+    color: var(--text-primary);
+    position: relative;
+}
+
+.conversation-message.user .conversation-bubble {
+    background: var(--chat-surface-user);
+}
+
+.conversation-bubble .bubble-text {
+    white-space: pre-wrap;
+}
+
+.assistant-llm-container {
+    position: relative;
+}
+
+.assistant-llm-copy,
+.user-copy {
+    position: absolute;
+    top: 10px;
+    padding: 4px 10px;
+    font-size: 0.75rem;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-primary);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.assistant-llm-copy {
+    right: 10px;
+}
+
+.user-copy {
+    left: 10px;
+}
+
+.assistant-llm-copy:hover,
+.user-copy:hover {
+    background: rgba(255, 255, 255, 0.18);
+}
+
+.assistant-llm {
+    white-space: normal;
+}
+
+.chat-input-panel {
+    position: sticky;
+    bottom: 0;
+    padding: 20px 32px 32px;
+    background: linear-gradient(180deg, rgba(52, 53, 65, 0) 0%, rgba(52, 53, 65, 0.85) 40%, rgba(52, 53, 65, 1) 100%);
+    border-top: 1px solid var(--sidebar-border);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.chat-input-inner {
+    display: flex;
+    gap: 12px;
+    background: #40414f;
+    border: 1px solid #565869;
+    border-radius: var(--radius-lg);
+    padding: 12px 16px;
+}
+
+.task-input {
+    flex: 1;
+    background: transparent;
+    color: var(--text-primary);
+    border: none;
+    resize: none;
+    min-height: 68px;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.task-input::placeholder {
+    color: var(--text-muted);
+}
+
+.task-input:focus {
+    outline: none;
+}
+
+.chat-input-actions {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+}
+
+.process-button {
+    padding: 10px 18px;
+    background: var(--accent);
+    border: none;
+    border-radius: var(--radius-sm);
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s ease;
+    min-width: 120px;
+}
+
+.process-button:hover {
+    background: var(--accent-hover);
+}
+
+.process-button:disabled {
+    background: #3f4147;
+    cursor: not-allowed;
+}
+
+.toggle-panel {
+    background: #40414f;
+    border: 1px solid #565869;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+}
+
+.toggle-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    cursor: pointer;
+    color: var(--text-primary);
+}
+
+.toggle-section {
+    padding: 16px 18px;
+    border-top: 1px solid #565869;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.toggle-section.collapsed {
+    display: none;
+}
+
+.toggle-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.options {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+}
+
+.option-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: var(--text-primary);
+}
+
+.option-group input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--accent);
+}
+
+.option-group input[type="number"],
+.option-group input[type="url"],
+.llm-select {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid #565869;
+    background: #343541;
+    color: var(--text-primary);
+}
+
+.option-group.option-group-wide {
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.llm-model-row {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+}
+
+.llm-refresh-button {
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid #565869;
+    background: #343541;
+    color: var(--text-primary);
+    cursor: pointer;
+}
+
+.llm-format-toggle {
+    display: flex;
+    gap: 18px;
+    color: var(--text-muted);
+}
+
+.progress-section {
+    display: none;
+    background: #40414f;
+    border: 1px solid #565869;
+    border-radius: var(--radius-lg);
+    padding: 16px 18px;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 6px;
+    background: #2d2f34;
+    border-radius: 999px;
+    overflow: hidden;
+    margin-bottom: 12px;
+}
+
+.progress-fill {
+    height: 100%;
+    background: var(--accent);
+    width: 0%;
+    transition: width 0.3s ease;
+}
+
+.status-text {
+    font-size: 0.85rem;
+    text-align: center;
+    color: var(--text-muted);
+}
+
+.assistant-tabs {
+    display: flex;
+    gap: 12px;
+    border-bottom: 1px solid #565869;
+    padding-bottom: 8px;
+}
+
+.assistant-tab-button {
+    padding: 8px 12px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.assistant-tab-button.active {
+    color: var(--text-primary);
+    border-bottom: 2px solid var(--accent);
+}
+
+.assistant-tab-content {
+    display: none;
+    margin-top: 12px;
+}
+
+.assistant-tab-content.active {
+    display: block;
+}
+
+.assistant-content-preview {
+    background: #202123;
+    border: 1px solid #2d2f34;
+    border-radius: var(--radius-sm);
+    padding: 16px;
+    max-height: 320px;
+    overflow-y: auto;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: var(--text-primary);
+}
+
+.assistant-preview-header,
+.assistant-downloads {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 12px;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.assistant-download-button {
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid #565869;
+    background: #343541;
+    color: var(--text-primary);
+    cursor: pointer;
+}
+
+.assistant-download-button.copy-main {
+    background: var(--accent);
+    border-color: var(--accent);
+}
+
+.assistant-download-button.copy-main:hover {
+    background: var(--accent-hover);
+}
+
+.assistant-download-button.secondary,
+.assistant-download-button.tertiary {
+    background: #3b3c4a;
+    border-color: #565869;
+}
+
+.assistant-download-button.secondary:hover,
+.assistant-download-button.tertiary:hover {
+    background: #40414f;
+}
+
+@media (max-width: 1024px) {
+    .app-sidebar {
+        display: none;
+    }
+
+    .chat-header {
+        padding: 20px 24px;
+    }
+
+    .chat-scroll,
+    .chat-input-panel,
+    .system-messages {
+        padding-left: 20px;
+        padding-right: 20px;
+    }
+}
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>🌐 Web Content Extractor</h1>
-        <p class="subtitle">Paste an instruction with a URL. The app fetches the page and pushes it through your Ollama model automatically.</p>
-
-        <div class="error-message" id="errorMessage"></div>
-        <div class="warning-message" id="warningMessage"></div>
-        <div class="success-message" id="successMessage"></div>
-        <div class="extraction-method" id="extractionMethod"></div>
-
-        <div class="conversation" id="chatMessages"></div>
-
-        <div class="input-section">
-            <label class="input-label" for="taskInput">Instruction &amp; URL</label>
-            <div class="input-group">
-                <textarea
-                    class="task-input"
-                    id="taskInput"
-                    placeholder=""></textarea>
-                <div class="action-column">
-                    <button class="process-button" id="processButton" onclick="runTask()">
-                        Run Task
-                    </button>
-                    <div class="toggle-panel collapsed" id="optionsPanel">
-                        <div class="toggle-title collapsed" id="optionsToggle">
-                            <span>Extraction &amp; Server Options</span>
-                            <span class="toggle-icon" id="optionsToggleIcon">▸</span>
+    <div class="app-shell">
+        <aside class="app-sidebar">
+            <div class="sidebar-header">
+                <span class="sidebar-title">Web Content Extractor</span>
+                <button type="button" class="sidebar-new" onclick="taskInputElement && taskInputElement.focus()">+ New Task</button>
+            </div>
+            <div class="sidebar-nav">
+                <h3>Recent</h3>
+                <ul class="sidebar-list">
+                    <li>History coming soon.</li>
+                </ul>
+            </div>
+        </aside>
+        <main class="app-main">
+            <header class="chat-header">
+                <div class="chat-header-title">
+                    <span class="brand-mark">🌐</span>
+                    <div>
+                        <h1>Web Content Extractor</h1>
+                        <p>Paste an instruction with a URL. The app fetches the page and pushes it through your Ollama model automatically.</p>
+                    </div>
+                </div>
+            </header>
+            <section class="system-messages">
+                <div class="error-message" id="errorMessage"></div>
+                <div class="warning-message" id="warningMessage"></div>
+                <div class="success-message" id="successMessage"></div>
+                <div class="extraction-method" id="extractionMethod"></div>
+            </section>
+            <section class="chat-scroll">
+                <div class="conversation" id="chatMessages"></div>
+                <div class="progress-section" id="progressSection">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <div class="status-text" id="statusText">Initializing...</div>
+                </div>
+            </section>
+            <footer class="chat-input-panel">
+                <div class="chat-input-inner">
+                    <textarea
+                        class="task-input"
+                        id="taskInput"
+                        placeholder="Send a message or paste an instruction with a URL..."></textarea>
+                    <div class="chat-input-actions">
+                        <button class="process-button" id="processButton" onclick="runTask()">
+                            Run Task
+                        </button>
+                    </div>
+                </div>
+                <div class="toggle-panel collapsed" id="optionsPanel">
+                    <div class="toggle-title collapsed" id="optionsToggle">
+                        <span>Extraction &amp; Server Options</span>
+                        <span class="toggle-icon" id="optionsToggleIcon">▸</span>
+                    </div>
+                    <div class="toggle-section collapsed" id="optionsToggleContent">
+                        <div class="toggle-grid">
+                            <label class="option-group">
+                                <input type="checkbox" id="includeImages" checked>
+                                <span>Include Image Alt Text</span>
+                            </label>
+                            <label class="option-group">
+                                <input type="checkbox" id="includeLinks" checked>
+                                <span>Include Link Text</span>
+                            </label>
+                            <label class="option-group">
+                                <input type="checkbox" id="includeMetadata" checked>
+                                <span>Include Page Metadata</span>
+                            </label>
+                            <label class="option-group">
+                                <input type="checkbox" id="expandDynamic" checked>
+                                <span>Expand Dynamic Content</span>
+                            </label>
+                            <label class="option-group">
+                                <input type="checkbox" id="cleanContent" checked>
+                                <span>Clean &amp; Format Content</span>
+                            </label>
                         </div>
-                        <div class="toggle-section collapsed" id="optionsToggleContent">
-                            <div class="toggle-grid">
-                                <label class="option-group">
-                                    <input type="checkbox" id="includeImages" checked>
-                                    <span>Include Image Alt Text</span>
-                                </label>
-                                <label class="option-group">
-                                    <input type="checkbox" id="includeLinks" checked>
-                                    <span>Include Link Text</span>
-                                </label>
-                                <label class="option-group">
-                                    <input type="checkbox" id="includeMetadata" checked>
-                                    <span>Include Page Metadata</span>
-                                </label>
-                                <label class="option-group">
-                                    <input type="checkbox" id="expandDynamic" checked>
-                                    <span>Expand Dynamic Content</span>
-                                </label>
-                                <label class="option-group">
-                                    <input type="checkbox" id="cleanContent" checked>
-                                    <span>Clean &amp; Format Content</span>
-                                </label>
-                            </div>
-                            <div class="toggle-grid">
-                                <label class="option-group option-group-wide">
-                                    <span>Playwright Server URL</span>
-                                    <input type="url" id="playwrightServer" value="http://localhost:3050" placeholder="http://localhost:3050">
-                                </label>
-                                <label class="option-group">
-                                    <span>Wait Time (ms)</span>
-                                    <input type="number" id="waitTime" value="3000" min="1000" max="10000" step="500">
-                                </label>
-                                <label class="option-group option-group-wide">
-                                    <span>Ollama Server URL</span>
-                                    <input type="url" id="ollamaServer" class="llm-input" placeholder="http://localhost:11434">
-                                </label>
-                                <label class="option-group option-group-wide">
-                                    <span>Ollama Model</span>
-                                    <div class="llm-model-row">
-                                        <select id="ollamaModel" class="llm-select">
-                                            <option value="" disabled selected>Loading models...</option>
-                                        </select>
-                                        <button class="llm-refresh-button" type="button" onclick="loadOllamaModels(true)">↻ Refresh</button>
-                                    </div>
-                                </label>
-                                <div class="llm-format-toggle">
-                                    <label>
-                                        <input type="radio" name="llmPayloadFormat" value="markdown" checked>
-                                        Markdown
-                                    </label>
-                                    <label>
-                                        <input type="radio" name="llmPayloadFormat" value="json">
-                                        JSON
-                                    </label>
+                        <div class="toggle-grid">
+                            <label class="option-group option-group-wide">
+                                <span>Playwright Server URL</span>
+                                <input type="url" id="playwrightServer" value="http://localhost:3050" placeholder="http://localhost:3050">
+                            </label>
+                            <label class="option-group">
+                                <span>Wait Time (ms)</span>
+                                <input type="number" id="waitTime" value="3000" min="1000" max="10000" step="500">
+                            </label>
+                            <label class="option-group option-group-wide">
+                                <span>Ollama Server URL</span>
+                                <input type="url" id="ollamaServer" class="llm-input" placeholder="http://localhost:11434">
+                            </label>
+                            <label class="option-group option-group-wide">
+                                <span>Ollama Model</span>
+                                <div class="llm-model-row">
+                                    <select id="ollamaModel" class="llm-select">
+                                        <option value="" disabled selected>Loading models...</option>
+                                    </select>
+                                    <button class="llm-refresh-button" type="button" onclick="loadOllamaModels(true)">↻ Refresh</button>
                                 </div>
+                            </label>
+                            <div class="llm-format-toggle">
+                                <label>
+                                    <input type="radio" name="llmPayloadFormat" value="markdown" checked>
+                                    Markdown
+                                </label>
+                                <label>
+                                    <input type="radio" name="llmPayloadFormat" value="json">
+                                    JSON
+                                </label>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
-
-        <div class="progress-section" id="progressSection">
-            <div class="progress-bar">
-                <div class="progress-fill" id="progressFill"></div>
-            </div>
-            <div class="status-text" id="statusText">Initializing...</div>
-        </div>
+            </footer>
+        </main>
     </div>
 
-    <script>
+<script>
 let extractedData = null;
 const extractionHistory = [];
 const PLAYWRIGHT_STORAGE_KEY = 'playwrightServerUrl';
