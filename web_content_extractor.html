@@ -300,10 +300,15 @@ button {
     display: flex;
     align-items: flex-start;
     gap: 16px;
+    width: 100%;
+}
+
+.conversation-message.assistant {
+    justify-content: flex-start;
 }
 
 .conversation-message.user {
-    flex-direction: row-reverse;
+    justify-content: flex-end;
 }
 
 .conversation-avatar {
@@ -318,10 +323,12 @@ button {
     color: var(--text-primary);
     flex-shrink: 0;
     box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
+    margin-top: 4px;
 }
 
 .conversation-message.user .conversation-avatar {
     background: rgba(16, 163, 127, 0.25);
+    display: none;
 }
 
 .conversation-message.assistant .conversation-avatar {
@@ -340,7 +347,7 @@ button {
 .conversation-message.status {
     flex-direction: column;
     gap: 12px;
-    align-items: center;
+    align-items: flex-start;
 }
 
 .conversation-message.status .conversation-avatar {
@@ -361,10 +368,12 @@ button {
     flex-direction: column;
     gap: 12px;
     box-shadow: 0 12px 24px var(--shadow-strong);
+    flex: 0 1 min(680px, 100%);
 }
 
 .conversation-message.user .conversation-bubble {
     background: var(--chat-surface-user);
+    margin-left: auto;
 }
 
 .conversation-message.status .conversation-bubble {
@@ -372,7 +381,9 @@ button {
     border-color: var(--status-default-border);
     color: var(--status-default-color);
     max-width: 520px;
-    text-align: center;
+    text-align: left;
+    margin-left: calc(34px + 16px);
+    margin-right: auto;
 }
 
 .conversation-message.status.status-info .conversation-bubble {
@@ -450,6 +461,20 @@ button {
     white-space: pre-wrap;
 }
 
+.assistant-loading-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.assistant-loading-inline .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: pulse 1.5s infinite ease-in-out;
+}
+
 .assistant-extraction {
     margin-top: 12px;
     border: 1px solid var(--panel-border);
@@ -459,6 +484,7 @@ button {
     display: flex;
     flex-direction: column;
     gap: 12px;
+    width: 100%;
 }
 
 .assistant-extraction-header {
