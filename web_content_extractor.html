@@ -8,6 +8,7 @@
     <link rel="icon" type="image/png" href="static/favicon.png">
     <style>
 :root {
+    color-scheme: dark;
     --sidebar-bg: #202123;
     --sidebar-border: #2d2f34;
     --chat-bg: #343541;
@@ -20,6 +21,60 @@
     --text-muted: #8e909c;
     --radius-lg: 18px;
     --radius-sm: 10px;
+    --panel-bg: #40414f;
+    --panel-border: #565869;
+    --surface-secondary: rgba(64, 65, 79, 0.85);
+    --shadow-strong: rgba(0, 0, 0, 0.25);
+    --status-default-bg: rgba(64, 65, 79, 0.82);
+    --status-default-border: rgba(255, 255, 255, 0.08);
+    --status-default-color: var(--text-primary);
+    --status-info-bg: rgba(59, 130, 246, 0.2);
+    --status-info-border: rgba(59, 130, 246, 0.35);
+    --status-info-color: #93c5fd;
+    --status-success-bg: rgba(16, 163, 127, 0.2);
+    --status-success-border: rgba(16, 163, 127, 0.35);
+    --status-success-color: #6ee7b7;
+    --status-warning-bg: rgba(234, 179, 8, 0.18);
+    --status-warning-border: rgba(234, 179, 8, 0.32);
+    --status-warning-color: #facc15;
+    --status-error-bg: rgba(239, 68, 68, 0.2);
+    --status-error-border: rgba(239, 68, 68, 0.35);
+    --status-error-color: #fca5a5;
+    --button-disabled-bg: #3f4147;
+}
+
+:root[data-theme="light"] {
+    color-scheme: light;
+    --sidebar-bg: #f5f6fb;
+    --sidebar-border: #dfe3f1;
+    --chat-bg: #f7f8fc;
+    --chat-surface: #ffffff;
+    --chat-surface-user: #eef4ff;
+    --bubble-border: rgba(15, 23, 42, 0.08);
+    --accent: #0b8a6f;
+    --accent-hover: #0a725c;
+    --text-primary: #1f2933;
+    --text-muted: #6b7280;
+    --panel-bg: #ffffff;
+    --panel-border: #dfe3f1;
+    --surface-secondary: rgba(255, 255, 255, 0.95);
+    --shadow-strong: rgba(15, 23, 42, 0.1);
+    --status-default-bg: rgba(15, 23, 42, 0.05);
+    --status-default-border: rgba(15, 23, 42, 0.12);
+    --status-default-color: #1f2933;
+    --status-info-bg: rgba(59, 130, 246, 0.1);
+    --status-info-border: rgba(59, 130, 246, 0.2);
+    --status-info-color: #2563eb;
+    --status-success-bg: rgba(16, 163, 127, 0.12);
+    --status-success-border: rgba(16, 163, 127, 0.25);
+    --status-success-color: #047857;
+    --status-warning-bg: rgba(234, 179, 8, 0.12);
+    --status-warning-border: rgba(234, 179, 8, 0.25);
+    --status-warning-color: #b45309;
+    --status-error-bg: rgba(239, 68, 68, 0.12);
+    --status-error-border: rgba(239, 68, 68, 0.25);
+    --status-error-color: #b91c1c;
+    --button-disabled-bg: #d1d5db;
 }
 
 * {
@@ -84,6 +139,15 @@ button {
     background: rgba(255, 255, 255, 0.16);
 }
 
+:root[data-theme="light"] .sidebar-new {
+    background: rgba(15, 23, 42, 0.05);
+    border-color: rgba(15, 23, 42, 0.08);
+}
+
+:root[data-theme="light"] .sidebar-new:hover {
+    background: rgba(15, 23, 42, 0.12);
+}
+
 .sidebar-nav {
     display: flex;
     flex-direction: column;
@@ -105,6 +169,10 @@ button {
     background: rgba(255, 255, 255, 0.03);
 }
 
+:root[data-theme="light"] .sidebar-list li {
+    background: rgba(15, 23, 42, 0.05);
+}
+
 .app-main {
     flex: 1;
     display: flex;
@@ -117,6 +185,13 @@ button {
     border-bottom: 1px solid var(--sidebar-border);
 }
 
+.chat-header-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
 .chat-header-title {
     display: flex;
     align-items: center;
@@ -125,6 +200,35 @@ button {
 
 .brand-mark {
     font-size: 28px;
+}
+
+.theme-toggle {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-primary);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.theme-toggle:hover {
+    background: rgba(255, 255, 255, 0.18);
+    transform: translateY(-1px);
+}
+
+:root[data-theme="light"] .theme-toggle {
+    border-color: rgba(15, 23, 42, 0.12);
+    background: rgba(15, 23, 42, 0.08);
+}
+
+:root[data-theme="light"] .theme-toggle:hover {
+    background: rgba(15, 23, 42, 0.16);
 }
 
 .chat-header-title h1 {
@@ -224,6 +328,15 @@ button {
     background: rgba(59, 130, 246, 0.25);
 }
 
+:root[data-theme="light"] .conversation-avatar {
+    background: rgba(59, 130, 246, 0.12);
+    box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.1);
+}
+
+:root[data-theme="light"] .conversation-message.user .conversation-avatar {
+    background: rgba(16, 163, 127, 0.18);
+}
+
 .conversation-message.status {
     flex-direction: column;
     gap: 12px;
@@ -247,7 +360,7 @@ button {
     display: flex;
     flex-direction: column;
     gap: 12px;
-    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.25);
+    box-shadow: 0 12px 24px var(--shadow-strong);
 }
 
 .conversation-message.user .conversation-bubble {
@@ -255,34 +368,35 @@ button {
 }
 
 .conversation-message.status .conversation-bubble {
-    background: rgba(64, 65, 79, 0.82);
-    border-color: rgba(255, 255, 255, 0.08);
+    background: var(--status-default-bg);
+    border-color: var(--status-default-border);
+    color: var(--status-default-color);
     max-width: 520px;
     text-align: center;
 }
 
 .conversation-message.status.status-info .conversation-bubble {
-    background: rgba(59, 130, 246, 0.2);
-    border-color: rgba(59, 130, 246, 0.35);
-    color: #93c5fd;
+    background: var(--status-info-bg);
+    border-color: var(--status-info-border);
+    color: var(--status-info-color);
 }
 
 .conversation-message.status.status-success .conversation-bubble {
-    background: rgba(16, 163, 127, 0.2);
-    border-color: rgba(16, 163, 127, 0.35);
-    color: #6ee7b7;
+    background: var(--status-success-bg);
+    border-color: var(--status-success-border);
+    color: var(--status-success-color);
 }
 
 .conversation-message.status.status-warning .conversation-bubble {
-    background: rgba(234, 179, 8, 0.18);
-    border-color: rgba(234, 179, 8, 0.32);
-    color: #facc15;
+    background: var(--status-warning-bg);
+    border-color: var(--status-warning-border);
+    color: var(--status-warning-color);
 }
 
 .conversation-message.status.status-error .conversation-bubble {
-    background: rgba(239, 68, 68, 0.2);
-    border-color: rgba(239, 68, 68, 0.35);
-    color: #fca5a5;
+    background: var(--status-error-bg);
+    border-color: var(--status-error-border);
+    color: var(--status-error-color);
 }
 
 .bubble-header {
@@ -302,6 +416,7 @@ button {
 
 .bubble-actions {
     display: flex;
+    align-items: center;
     gap: 6px;
 }
 
@@ -322,15 +437,24 @@ button {
     background: rgba(255, 255, 255, 0.18);
 }
 
+:root[data-theme="light"] .bubble-copy {
+    border-color: rgba(15, 23, 42, 0.12);
+    background: rgba(15, 23, 42, 0.08);
+}
+
+:root[data-theme="light"] .bubble-copy:hover {
+    background: rgba(15, 23, 42, 0.16);
+}
+
 .conversation-bubble .bubble-text {
     white-space: pre-wrap;
 }
 
 .assistant-extraction {
     margin-top: 12px;
-    border: 1px solid #565869;
+    border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
-    background: rgba(64, 65, 79, 0.85);
+    background: var(--surface-secondary);
     padding: 14px 16px;
     display: flex;
     flex-direction: column;
@@ -352,9 +476,13 @@ button {
     border-radius: 999px;
 }
 
+:root[data-theme="light"] .assistant-extraction-meta {
+    background: rgba(15, 23, 42, 0.08);
+}
+
 .assistant-extraction-toggle {
-    background: #343541;
-    border: 1px solid #565869;
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
     border-radius: var(--radius-sm);
     color: var(--text-primary);
     padding: 8px 12px;
@@ -369,13 +497,18 @@ button {
     background: rgba(255, 255, 255, 0.08);
 }
 
+:root[data-theme="light"] .assistant-extraction-toggle:hover {
+    background: rgba(15, 23, 42, 0.08);
+}
+
 .assistant-extraction-icon {
     font-size: 0.9rem;
 }
 
 .assistant-extraction-body {
-    border-top: 1px solid #565869;
+    border-top: 1px solid var(--panel-border);
     padding-top: 12px;
+    display: none;
 }
 
 .assistant-extraction.open .assistant-extraction-body {
@@ -397,11 +530,15 @@ button {
     gap: 16px;
 }
 
+:root[data-theme="light"] .chat-input-panel {
+    background: linear-gradient(180deg, rgba(247, 248, 252, 0) 0%, rgba(247, 248, 252, 0.85) 40%, rgba(247, 248, 252, 1) 100%);
+}
+
 .chat-input-inner {
     display: flex;
     gap: 12px;
-    background: #40414f;
-    border: 1px solid #565869;
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
     border-radius: var(--radius-lg);
     padding: 12px 16px;
 }
@@ -448,13 +585,13 @@ button {
 }
 
 .process-button:disabled {
-    background: #3f4147;
+    background: var(--button-disabled-bg);
     cursor: not-allowed;
 }
 
 .toggle-panel {
-    background: #40414f;
-    border: 1px solid #565869;
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
     border-radius: var(--radius-lg);
     overflow: hidden;
 }
@@ -470,7 +607,7 @@ button {
 
 .toggle-section {
     padding: 16px 18px;
-    border-top: 1px solid #565869;
+    border-top: 1px solid var(--panel-border);
     display: flex;
     flex-direction: column;
     gap: 16px;
@@ -488,6 +625,10 @@ button {
     align-items: center;
     justify-content: center;
     background: rgba(255, 255, 255, 0.08);
+}
+
+:root[data-theme="light"] .toggle-icon {
+    background: rgba(15, 23, 42, 0.08);
 }
 
 .options {
@@ -515,8 +656,8 @@ button {
     width: 100%;
     padding: 10px 12px;
     border-radius: var(--radius-sm);
-    border: 1px solid #565869;
-    background: #343541;
+    border: 1px solid var(--panel-border);
+    background: var(--chat-surface);
     color: var(--text-primary);
 }
 
@@ -534,8 +675,8 @@ button {
 .llm-refresh-button {
     padding: 10px 12px;
     border-radius: var(--radius-sm);
-    border: 1px solid #565869;
-    background: #343541;
+    border: 1px solid var(--panel-border);
+    background: var(--chat-surface);
     color: var(--text-primary);
     cursor: pointer;
 }
@@ -548,8 +689,8 @@ button {
 
 .progress-section {
     display: none;
-    background: #40414f;
-    border: 1px solid #565869;
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
     border-radius: var(--radius-lg);
     padding: 16px 18px;
 }
@@ -561,6 +702,10 @@ button {
     border-radius: 999px;
     overflow: hidden;
     margin-bottom: 12px;
+}
+
+:root[data-theme="light"] .progress-bar {
+    background: rgba(15, 23, 42, 0.08);
 }
 
 .progress-fill {
@@ -576,10 +721,33 @@ button {
     color: var(--text-muted);
 }
 
+.llm-progress {
+    display: none;
+    margin-top: 12px;
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
+}
+
+.llm-progress .progress-bar {
+    height: 4px;
+    margin-bottom: 8px;
+    background: rgba(255, 255, 255, 0.12);
+}
+
+:root[data-theme="light"] .llm-progress .progress-bar {
+    background: rgba(15, 23, 42, 0.08);
+}
+
+.llm-progress .status-text {
+    text-align: left;
+}
+
 .assistant-tabs {
     display: flex;
     gap: 12px;
-    border-bottom: 1px solid #565869;
+    border-bottom: 1px solid var(--panel-border);
     padding-bottom: 8px;
 }
 
@@ -632,8 +800,8 @@ button {
 .assistant-download-button {
     padding: 8px 12px;
     border-radius: var(--radius-sm);
-    border: 1px solid #565869;
-    background: #343541;
+    border: 1px solid var(--panel-border);
+    background: var(--panel-bg);
     color: var(--text-primary);
     cursor: pointer;
 }
@@ -649,13 +817,18 @@ button {
 
 .assistant-download-button.secondary,
 .assistant-download-button.tertiary {
-    background: #3b3c4a;
-    border-color: #565869;
+    background: var(--panel-bg);
+    border-color: var(--panel-border);
 }
 
 .assistant-download-button.secondary:hover,
 .assistant-download-button.tertiary:hover {
-    background: #40414f;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+:root[data-theme="light"] .assistant-download-button.secondary:hover,
+:root[data-theme="light"] .assistant-download-button.tertiary:hover {
+    background: rgba(15, 23, 42, 0.08);
 }
 
 @media (max-width: 1024px) {
@@ -672,6 +845,34 @@ button {
     .system-messages {
         padding-left: 20px;
         padding-right: 20px;
+    }
+}
+
+@media (max-width: 768px) {
+    .chat-scroll {
+        padding: 16px 18px;
+    }
+
+    .conversation-bubble {
+        padding: 14px 16px;
+    }
+
+    .chat-input-panel {
+        padding: 16px 18px 24px;
+    }
+
+    .chat-input-inner {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .chat-input-actions {
+        align-items: flex-end;
+    }
+
+    .theme-toggle {
+        width: 38px;
+        height: 38px;
     }
 }
     </style>
@@ -692,12 +893,15 @@ button {
         </aside>
         <main class="app-main">
             <header class="chat-header">
-                <div class="chat-header-title">
-                    <span class="brand-mark">🌐</span>
-                    <div>
-                        <h1>Web Content Extractor</h1>
-                        <p>Paste an instruction with a URL. The app fetches the page and pushes it through your Ollama model automatically.</p>
+                <div class="chat-header-bar">
+                    <div class="chat-header-title">
+                        <span class="brand-mark">🌐</span>
+                        <div>
+                            <h1>Web Content Extractor</h1>
+                            <p>Paste an instruction with a URL. The app fetches the page and pushes it through your Ollama model automatically.</p>
+                        </div>
                     </div>
+                    <button type="button" class="theme-toggle" id="themeToggle" aria-label="Switch to light theme">☀️</button>
                 </div>
             </header>
             <section class="system-messages">
@@ -705,9 +909,15 @@ button {
                 <div class="warning-message" id="warningMessage"></div>
                 <div class="success-message" id="successMessage"></div>
                 <div class="extraction-method" id="extractionMethod"></div>
+                <div class="llm-progress" id="llmProgress">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="llmProgressFill"></div>
+                    </div>
+                    <div class="status-text" id="llmStatusText"></div>
+                </div>
             </section>
             <section class="chat-scroll">
-                        <div class="conversation" id="chatMessages"></div>
+                <div class="conversation" id="chatMessages"></div>
                 <div class="progress-section" id="progressSection">
                     <div class="progress-bar">
                         <div class="progress-fill" id="progressFill"></div>
@@ -809,12 +1019,95 @@ const DEFAULT_OLLAMA_MODELS = [
     'mixtral',
     'phi3'
 ];
+const THEME_STORAGE_KEY = 'uiTheme';
 const LLM_RESPONSE_FORMAT_HINT = [
     'Format your entire response as semantic HTML that renders cleanly in a browser.',
     'Use headings (<h2>, <h3>), paragraphs, bullet lists, numbered lists, tables, and short sections where helpful.',
     'Wrap code samples in <pre><code>...</code></pre> blocks.',
     'Avoid including <script>, <iframe>, <object>, <embed>, <html>, <head>, or <body> tags.'
 ].join(' ');
+
+let currentTheme = 'dark';
+
+function updateThemeToggle(theme) {
+    const toggle = document.getElementById('themeToggle');
+    if (!toggle) {
+        return;
+    }
+    if (theme === 'light') {
+        toggle.textContent = '🌙';
+        toggle.setAttribute('aria-label', 'Switch to dark theme');
+    } else {
+        toggle.textContent = '☀️';
+        toggle.setAttribute('aria-label', 'Switch to light theme');
+    }
+}
+
+function applyTheme(theme, persist = true) {
+    currentTheme = theme === 'light' ? 'light' : 'dark';
+    const doc = document.documentElement;
+    doc.dataset.theme = currentTheme;
+    doc.style.colorScheme = currentTheme;
+    updateThemeToggle(currentTheme);
+    if (persist) {
+        try {
+            localStorage.setItem(THEME_STORAGE_KEY, currentTheme);
+        } catch (storageError) {
+            console.warn('Unable to persist theme preference:', storageError);
+        }
+    }
+}
+
+function initializeTheme() {
+    let storedTheme = null;
+    try {
+        storedTheme = localStorage.getItem(THEME_STORAGE_KEY);
+    } catch (storageError) {
+        console.warn('Unable to access theme preference from storage:', storageError);
+    }
+
+    let initialTheme = storedTheme;
+    if (!initialTheme) {
+        initialTheme = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches
+            ? 'light'
+            : 'dark';
+    }
+
+    applyTheme(initialTheme, false);
+
+    const toggle = document.getElementById('themeToggle');
+    if (toggle) {
+        toggle.addEventListener('click', () => {
+            const next = currentTheme === 'light' ? 'dark' : 'light';
+            applyTheme(next);
+        });
+    }
+
+    if (window.matchMedia) {
+        try {
+            const media = window.matchMedia('(prefers-color-scheme: light)');
+            const listener = event => {
+                try {
+                    if (localStorage.getItem(THEME_STORAGE_KEY)) {
+                        return;
+                    }
+                } catch (storageError) {
+                    // ignore storage issues
+                }
+                applyTheme(event.matches ? 'light' : 'dark', false);
+            };
+            if (media.addEventListener) {
+                media.addEventListener('change', listener);
+            } else if (media.addListener) {
+                media.addListener(listener);
+            }
+        } catch (error) {
+            console.warn('Unable to observe system theme changes:', error);
+        }
+    }
+}
+
+initializeTheme();
 
 function escapeHtml(value) {
     return value.replace(/[&<>"']/g, function(char) {
@@ -881,7 +1174,15 @@ function renderUserMessage(text) {
 }
 
 function renderAssistantLoading(text = 'Working…') {
-    return `<span class="assistant-loading-inline"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span>${escapeHtml(text)}</span></span>`;
+    return `
+        <div class="bubble-header">
+            <span class="bubble-label">Assistant</span>
+            <div class="bubble-actions">
+                <span class="assistant-loading-inline"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span>
+            </div>
+        </div>
+        <div class="assistant-llm">${escapeHtml(text)}</div>
+    `;
 }
 
 function renderAssistantResponse(llmHtml, data, extractionIndex) {
@@ -1616,7 +1917,12 @@ function setLlmStatus(type, message) {
     }
 
     const safeHtml = escapeHtml(trimmedMessage).replace(/\n/g, '<br>');
-    bubble.innerHTML = `<div class="status-message-text">${safeHtml}</div>`;
+    bubble.innerHTML = `
+        <div class="bubble-header">
+            <span class="bubble-label">System</span>
+        </div>
+        <div class="status-message-text">${safeHtml}</div>
+    `;
     requestAnimationFrame(scrollConversationToEnd);
 }
 
