@@ -303,6 +303,16 @@ button {
     width: 100%;
 }
 
+.conversation-message.assistant:not(.status) {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr);
+    column-gap: 16px;
+}
+
+.conversation-message.assistant:not(.status) .conversation-avatar {
+    grid-row: 1 / span 2;
+}
+
 .conversation-message.assistant {
     justify-content: flex-start;
 }
@@ -368,7 +378,13 @@ button {
     flex-direction: column;
     gap: 12px;
     box-shadow: 0 12px 24px var(--shadow-strong);
-    flex: 0 1 min(680px, 100%);
+    flex: 0 1 auto;
+    min-width: 0;
+}
+
+.conversation-message.assistant:not(.status) .conversation-bubble {
+    width: min(680px, 100%);
+    max-width: min(680px, 100%);
 }
 
 .conversation-message.user .conversation-bubble {

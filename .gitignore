@@ -7,6 +7,13 @@ yarn.lock
 npm-debug.log*
 yarn-error.log*
 
+# Local environment & editor settings
+.env
+.env.*
+!.env.example
+.vscode/
+.idea/
+
 # Build & test outputs
 dist/
 build/
@@ -22,6 +29,10 @@ docker/ssl/*.key
 docker/ssl/*.pem
 docker/ssl/*.csr
 docker/ssl/*.srl
+
+# Ad-hoc assets captured during debugging
+/*.png
+/*.jpg
 
 # Editor & OS metadata
 *.code-workspace
