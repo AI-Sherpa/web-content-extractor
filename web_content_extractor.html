@@ -648,11 +648,11 @@ button {
 }
 
 .toggle-section {
-    padding: 16px 18px;
+    padding: 18px 20px;
     border-top: 1px solid var(--panel-border);
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 18px;
 }
 
 .toggle-section.collapsed {
@@ -673,17 +673,32 @@ button {
     background: rgba(15, 23, 42, 0.08);
 }
 
-.options {
+.toggle-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 18px;
+}
+
+.toggle-grid + .toggle-grid {
+    margin-top: 4px;
 }
 
 .option-group {
     display: flex;
     align-items: center;
+    justify-content: flex-start;
     gap: 12px;
     color: var(--text-primary);
+    font-size: 0.95rem;
+    width: 100%;
+}
+
+.option-group .option-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
 }
 
 .option-group input[type="checkbox"] {
@@ -706,6 +721,12 @@ button {
 .option-group.option-group-wide {
     flex-direction: column;
     align-items: flex-start;
+    gap: 10px;
+    width: 100%;
+}
+
+.toggle-grid .option-group.option-group-wide {
+    grid-column: 1 / -1;
 }
 
 .llm-model-row {
@@ -717,15 +738,45 @@ button {
 .llm-refresh-button {
     padding: 10px 12px;
     border-radius: var(--radius-sm);
+    transition: background 0.2s ease, border-color 0.2s ease;
     border: 1px solid var(--panel-border);
     background: var(--chat-surface);
     color: var(--text-primary);
     cursor: pointer;
 }
 
+.llm-refresh-button:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+:root[data-theme="light"] .llm-refresh-button {
+    background: rgba(15, 23, 42, 0.04);
+}
+
+:root[data-theme="light"] .llm-refresh-button:hover {
+    background: rgba(15, 23, 42, 0.12);
+}
+
 .llm-format-toggle {
     display: flex;
-    gap: 18px;
+    flex-wrap: wrap;
+    gap: 14px;
+}
+
+.llm-format-toggle label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.llm-format-toggle input[type="radio"] {
+    accent-color: var(--accent);
+}
+
+.llm-format-description {
+    font-size: 0.85rem;
     color: var(--text-muted);
 }
 
@@ -908,6 +959,18 @@ button {
         align-items: stretch;
     }
 
+    .toggle-section {
+        padding: 16px 18px;
+    }
+
+    .toggle-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .toggle-grid .option-group.option-group-wide {
+        grid-column: 1;
+    }
+
     .chat-input-actions {
         align-items: flex-end;
     }
@@ -1029,15 +1092,19 @@ button {
                                     <button class="llm-refresh-button" type="button" onclick="loadOllamaModels(true)">↻ Refresh</button>
                                 </div>
                             </label>
-                            <div class="llm-format-toggle">
-                                <label>
-                                    <input type="radio" name="llmPayloadFormat" value="markdown" checked>
-                                    Markdown
-                                </label>
-                                <label>
-                                    <input type="radio" name="llmPayloadFormat" value="json">
-                                    JSON
-                                </label>
+                            <div class="option-group option-group-wide">
+                                <span class="option-label" id="llmFormatLabel">LLM Payload Format</span>
+                                <div class="llm-format-toggle" role="radiogroup" aria-labelledby="llmFormatLabel">
+                                    <label>
+                                        <input type="radio" name="llmPayloadFormat" value="markdown" checked>
+                                        Markdown
+                                    </label>
+                                    <label>
+                                        <input type="radio" name="llmPayloadFormat" value="json">
+                                        JSON
+                                    </label>
+                                </div>
+                                <p class="llm-format-description">Controls the structure of the payload sent to your Ollama model.</p>
                             </div>
                         </div>
                     </div>
