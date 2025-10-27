@@ -194,11 +194,44 @@ button {
 
 .conversation-message {
     display: flex;
-    gap: 12px;
+    align-items: flex-start;
+    gap: 16px;
 }
 
 .conversation-message.user {
-    justify-content: flex-end;
+    flex-direction: row-reverse;
+}
+
+.conversation-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.08);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    color: var(--text-primary);
+    flex-shrink: 0;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.conversation-message.user .conversation-avatar {
+    background: rgba(16, 163, 127, 0.25);
+}
+
+.conversation-message.assistant .conversation-avatar {
+    background: rgba(59, 130, 246, 0.25);
+}
+
+.conversation-message.status {
+    flex-direction: column;
+    gap: 12px;
+    align-items: center;
+}
+
+.conversation-message.status .conversation-avatar {
+    display: none;
 }
 
 .conversation-bubble {
@@ -211,47 +244,142 @@ button {
     font-size: 0.98rem;
     color: var(--text-primary);
     position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.25);
 }
 
 .conversation-message.user .conversation-bubble {
     background: var(--chat-surface-user);
 }
 
-.conversation-bubble .bubble-text {
-    white-space: pre-wrap;
+.conversation-message.status .conversation-bubble {
+    background: rgba(64, 65, 79, 0.82);
+    border-color: rgba(255, 255, 255, 0.08);
+    max-width: 520px;
+    text-align: center;
 }
 
-.assistant-llm-container {
-    position: relative;
+.conversation-message.status.status-info .conversation-bubble {
+    background: rgba(59, 130, 246, 0.2);
+    border-color: rgba(59, 130, 246, 0.35);
+    color: #93c5fd;
 }
 
-.assistant-llm-copy,
-.user-copy {
-    position: absolute;
-    top: 10px;
+.conversation-message.status.status-success .conversation-bubble {
+    background: rgba(16, 163, 127, 0.2);
+    border-color: rgba(16, 163, 127, 0.35);
+    color: #6ee7b7;
+}
+
+.conversation-message.status.status-warning .conversation-bubble {
+    background: rgba(234, 179, 8, 0.18);
+    border-color: rgba(234, 179, 8, 0.32);
+    color: #facc15;
+}
+
+.conversation-message.status.status-error .conversation-bubble {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: rgba(239, 68, 68, 0.35);
+    color: #fca5a5;
+}
+
+.bubble-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.bubble-label {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.bubble-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.bubble-copy {
     padding: 4px 10px;
-    font-size: 0.75rem;
     border-radius: 999px;
     border: 1px solid rgba(255, 255, 255, 0.12);
     background: rgba(255, 255, 255, 0.08);
     color: var(--text-primary);
     cursor: pointer;
+    font-size: 0.74rem;
     display: inline-flex;
     align-items: center;
     gap: 6px;
 }
 
-.assistant-llm-copy {
-    right: 10px;
-}
-
-.user-copy {
-    left: 10px;
-}
-
-.assistant-llm-copy:hover,
-.user-copy:hover {
+.bubble-copy:hover {
     background: rgba(255, 255, 255, 0.18);
+}
+
+.conversation-bubble .bubble-text {
+    white-space: pre-wrap;
+}
+
+.assistant-extraction {
+    margin-top: 12px;
+    border: 1px solid #565869;
+    border-radius: var(--radius-sm);
+    background: rgba(64, 65, 79, 0.85);
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.assistant-extraction-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.assistant-extraction-meta {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    background: rgba(255, 255, 255, 0.08);
+    padding: 4px 10px;
+    border-radius: 999px;
+}
+
+.assistant-extraction-toggle {
+    background: #343541;
+    border: 1px solid #565869;
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    cursor: pointer;
+}
+
+.assistant-extraction-toggle:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.assistant-extraction-icon {
+    font-size: 0.9rem;
+}
+
+.assistant-extraction-body {
+    border-top: 1px solid #565869;
+    padding-top: 12px;
+}
+
+.assistant-extraction.open .assistant-extraction-body {
+    display: block;
 }
 
 .assistant-llm {
@@ -579,7 +707,7 @@ button {
                 <div class="extraction-method" id="extractionMethod"></div>
             </section>
             <section class="chat-scroll">
-                <div class="conversation" id="chatMessages"></div>
+                        <div class="conversation" id="chatMessages"></div>
                 <div class="progress-section" id="progressSection">
                     <div class="progress-bar">
                         <div class="progress-fill" id="progressFill"></div>
@@ -708,10 +836,23 @@ let statusMessageEl = null;
 function appendConversationMessage(role, html) {
     if (!conversationEl) return null;
     const wrapper = document.createElement('div');
-    wrapper.className = `conversation-message ${role}`;
+    wrapper.classList.add('conversation-message');
+    const roleParts = role.split(/\s+/).filter(Boolean);
+    const primaryRole = roleParts[0] || 'assistant';
+    roleParts.forEach(part => wrapper.classList.add(part));
     const bubble = document.createElement('div');
     bubble.className = 'conversation-bubble';
+    bubble.dataset.role = primaryRole;
     bubble.innerHTML = html;
+
+    const isStatus = roleParts.includes('status');
+    if (!isStatus) {
+        const avatar = document.createElement('div');
+        avatar.className = 'conversation-avatar';
+        avatar.textContent = primaryRole === 'user' ? '🧑' : '🤖';
+        wrapper.appendChild(avatar);
+    }
+
     wrapper.appendChild(bubble);
     conversationEl.appendChild(wrapper);
     requestAnimationFrame(scrollConversationToEnd);
@@ -729,13 +870,13 @@ function updateConversationMessage(messageEl, html) {
 
 function renderUserMessage(text) {
     return `
-        <div class="user-message-body" data-user-message>
-            <button type="button" class="assistant-llm-copy user-copy" data-copy-user>
-                <span>📋</span>
-                <span>Copy</span>
-            </button>
-            <div class="bubble-text">${escapeHtml(text).replace(/\n/g, '<br>')}</div>
+        <div class="bubble-header">
+            <span class="bubble-label">You</span>
+            <div class="bubble-actions">
+                <button type="button" class="bubble-copy" data-copy="user">Copy</button>
+            </div>
         </div>
+        <div class="bubble-text">${escapeHtml(text).replace(/\n/g, '<br>')}</div>
     `;
 }
 
@@ -746,13 +887,13 @@ function renderAssistantLoading(text = 'Working…') {
 function renderAssistantResponse(llmHtml, data, extractionIndex) {
     const detailsHtml = data ? renderExtractionDetails(data, extractionIndex) : '';
     return `
-        <div class="assistant-llm-container">
-            <button type="button" class="assistant-llm-copy" data-copy-llm>
-                <span>📋</span>
-                <span>Copy</span>
-            </button>
-            <div class="assistant-llm">${llmHtml}</div>
+        <div class="bubble-header">
+            <span class="bubble-label">Assistant</span>
+            <div class="bubble-actions">
+                <button type="button" class="bubble-copy" data-copy="assistant">Copy</button>
+            </div>
         </div>
+        <div class="assistant-llm">${llmHtml}</div>
         ${detailsHtml}
     `;
 }
@@ -1133,20 +1274,17 @@ function scrollConversationToEnd() {
 
 if (conversationEl) {
     conversationEl.addEventListener('click', event => {
-        const copyLlmButton = event.target.closest('[data-copy-llm]');
-        if (copyLlmButton) {
-            const container = copyLlmButton.closest('.assistant-llm-container');
-            if (container) {
-                copyLlmResponse(container);
+        const bubbleCopyButton = event.target.closest('[data-copy]');
+        if (bubbleCopyButton) {
+            const targetType = bubbleCopyButton.dataset.copy;
+            const bubble = bubbleCopyButton.closest('.conversation-bubble');
+            if (!bubble) {
+                return;
             }
-            return;
-        }
-
-        const copyUserButton = event.target.closest('[data-copy-user]');
-        if (copyUserButton) {
-            const container = copyUserButton.closest('.user-message-body');
-            if (container) {
-                copyUserMessage(container);
+            if (targetType === 'assistant') {
+                copyLlmResponse(bubble);
+            } else if (targetType === 'user') {
+                copyUserMessage(bubble);
             }
             return;
         }
