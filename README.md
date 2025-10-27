@@ -1,40 +1,39 @@
 # Web Content Extractor
 
-A lightweight toolkit for turning any web page into LLM-ready text. The project ships a polished browser UI for driving extractions plus an optional Playwright-powered helper service that renders dynamic, JavaScript-heavy pages.
+Interactive tooling that turns any web page into LLM-ready context. The project ships a polished single-page UI for running extractions plus an optional Playwright helper service that renders JavaScript-heavy targets before capture.
 
-## Features
+## What’s Included
 
-- Toggleable extraction options: include structured metadata, link and image alt text, and optional content cleaning.
-- Playwright integration for server-side rendering of SPA or client-heavy pages with configurable wait times.
-- Built-in handoff to local Ollama models: send the extracted content (Markdown or JSON) with a custom prompt and view responses inline.
-- Multiple export formats (clean text, structured data, Markdown, JSON, and raw HTML) with one-click copy actions.
-- Zero-build workflow for the UI—open the HTML file directly—or deploy both UI and helper in Docker containers.
+- `web_content_extractor.html` — standalone browser UI with a chat-inspired workflow, extraction history, formatting helpers, and Ollama integration.
+- `extract-server.js` — Express server that keeps a warm Playwright browser ready for `/extract-with-playwright` requests.
+- `static/` — favicon assets referenced by the UI.
+- `docker/` — container builds for the UI and helper (with nginx front end and helper-only variants).
+- `package.json` / `package-lock.json` — Node metadata for the helper.
 
-## Repository Layout
+## Key Features
 
-```
-web-content-extractor/
-├── extract-server.js          # Express + Playwright helper API
-├── web_content_extractor.html # Stand-alone browser UI
-├── docker/                    # Dockerfiles, compose stack, and nginx config
-├── package.json               # Helper service metadata and scripts
-├── package-lock.json
-└── .gitignore
-```
+- Handles modern pages: Playwright renders targets headlessly, waits for SPA hydration, and falls back to multiple text-only services if the helper is offline.
+- Guided workflow: status bubbles, progress meters, and extraction history show exactly where each request is in the pipeline.
+- Rich content capture: configurable toggles for metadata, links, image alt text, dynamic content expansion, and post-processing cleanup.
+- LLM handoff: send extracted data to Ollama in Markdown or JSON format, track generation progress, and display responses inline with copy/export controls.
+- Export anywhere: copy the main content, structured outline, Markdown, JSON, or a ready-to-host HTML capsule with one click.
+- Smart defaults: remembers Playwright/Ollama endpoints and preferred models in `localStorage`, dark/light theme toggle, and opinionated response-format hints for HTML-ready LLM output.
 
-## Ignored Files
+## How the Flow Works
 
-Generated artifacts and machine-specific files are kept out of version control:
-
-- Node/Playwright dependencies and caches (`node_modules/`, Playwright reports, coverage output, etc.).
-- Local TLS materials under `docker/ssl/`; regenerate them with `docker/generate-ssl.sh` whenever you need fresh certs.
-- Developer-specific workspace files such as `*.code-workspace` or macOS `.DS_Store` entries.
+1. You enter an instruction that contains a URL and click **Run Task**.
+2. The UI calls the Playwright helper (`/extract-with-playwright`) with the target URL and wait time.
+3. The helper launches (or reuses) a headless Chromium instance, waits for DOMContentLoaded plus your configured delay, and returns the page HTML.
+4. The UI parses and enriches the HTML (clean text, metadata, structure, links, images).
+5. If Playwright fails or is unreachable, the UI cascades through text-only fallbacks (AllOrigins proxy, r.jina.ai mirrors, Google Webcache) before surfacing an error.
+6. The extraction summary, raw data, and export controls are shown. If an Ollama model is selected, the UI automatically formats a prompt and sends it to your local LLM.
 
 ## Prerequisites
 
-- Node.js ≥ 18 and npm (for the Playwright helper).
-- Docker / Docker Compose (optional) if you prefer containerized deployment.
-- Playwright browser binaries. Install them once with `npm run playwright:install` or `npx playwright install --with-deps`.
+- Node.js ≥ 18 (helper server) and npm.
+- Playwright browser binaries (`npm run playwright:install` once per machine).
+- Optional: Docker + Docker Compose if you prefer containerized deployment.
+- Optional: Ollama for on-device LLM generation.
 
 ## Local Quick Start
 
@@ -42,54 +41,119 @@ Generated artifacts and machine-specific files are kept out of version control:
 git clone <repo-url>
 cd web-content-extractor
 npm install
-npm run playwright:install   # optional but recommended on a fresh machine
-npm start                    # starts the helper on http://localhost:3050
+npm run playwright:install   # installs Playwright browsers
+npm start                    # helper listens on http://localhost:3050
 ```
 
-Then load `web_content_extractor.html` in your browser (open it via `file://` or serve it with any static file server). The UI always routes page fetches through the Playwright helper, so make sure the server URL field matches where it is running—`http://localhost:3050` by default. Enter an instruction that includes the target URL (for example, `From the URL "https://...", tell me ...`) and click **Run Task**. The app runs Playwright extraction with the default options, forwards the result to your local LLM, and shows both the raw capture and the model response. Expand the options panel if you need to tweak extraction settings.
+Open `web_content_extractor.html` directly in your browser (`file://` is fine) or serve it from any static host. Confirm the **Playwright Server URL** field matches where the helper is running (`http://localhost:3050` by default), enter a task such as:
 
-> Ollama users: start `ollama serve` with `OLLAMA_ORIGINS` set to your UI origin (for example, `export OLLAMA_ORIGINS="file://,http://localhost:8080"`), so the browser is allowed to call the API.
+```
+Visit https://example.com and summarise the main offerings. Include notable links.
+```
+
+Click **Run Task** to launch the extraction. Watch the progress meter and conversation view for status updates, then review the formatted outline, structured JSON, and markdown exports.
+
+## Using the UI
+
+- **Extraction Options** — Expand the footer panel to toggle metadata/link/image inclusion, dynamic content expansion, content cleanup, wait time, and server endpoints.
+- **Conversation Thread** — Each run adds a user/assistant pair. System cards surface progress, warnings, and success/failure states.
+- **Extraction Details Drawer** — Per result you can switch between formatted text, structured JSON, Markdown, and raw JSON tabs, with copy icons for each.
+- **Send to Ollama** — Choose Markdown or JSON payload format, select a model, and click **Send to Ollama** (automatically triggered after extraction when a model is already selected). The UI streams progress, handles errors, and keeps the status bubble pinned to the conversation tail.
+- **Copy Menu** — Quick actions exist for copying main content, Markdown, JSON, HTML, or entire LLM responses. Success/warning toasts confirm the results.
+- **Theme Toggle & Persistence** — Theme, server URLs, preferred model, and last-known model are stored under dedicated keys so the UI comes back exactly as you left it.
+
+## Ollama Integration
+
+- Set `OLLAMA_ORIGINS` to allow the UI origin before running `ollama serve`. When using `file://`, a permissive value works:
+  ```bash
+  export OLLAMA_ORIGINS="*"
+  ollama serve
+  ```
+- The UI calls `/api/tags` to populate the model dropdown and will attempt to auto-pull the preferred `gpt-oss:120b-cloud` model if it is missing.
+- Response payloads are generated via `/api/generate` with `stream: false`. Any connectivity or CORS issues are surfaced inline with remedial tips.
+- Switching models or formats updates the Send button availability immediately; extraction history entries retain the model used at the time of generation.
+
+## Playwright Helper (`extract-server.js`)
+
+- Launches a persistent Chromium instance on first request (headless, `--no-sandbox` flags for container use) and reuses it for subsequent calls.
+- Warms the browser on startup by loading `about:blank` so the first extraction returns quickly.
+- Route: `POST /extract-with-playwright` with payload `{ url, waitTime }`. Wait time defaults to 3000 ms and feeds both the navigation timeout and post-load delay.
+- Returns `{ success: true, html }` or `{ success: false, error }`. Errors are logged server-side and mirrored in the UI.
+- Graceful shutdown on `SIGTERM`/`SIGINT` plus defensive cleanup on uncaught errors to avoid orphaned Chromium processes.
+
+## Fallback Extraction Strategy
+
+If the helper is offline or Playwright cannot reach the page, the UI attempts:
+
+1. AllOrigins proxy (`https://api.allorigins.win/raw?...`).
+2. r.jina.ai text mirroring (`https://r.jina.ai/http://…` variants, with and without `www.`).
+3. Google Webcache (`https://webcache.googleusercontent.com/search?q=cache:…`).
+
+These sources return simplified HTML; dynamic or authenticated content will likely be missing. The final extraction report records which method succeeded (`playwright`, `playwright-fallback`, `alternative`, or `cached`) so you can gauge fidelity.
 
 ## Docker Quick Start
 
-Build and run the helper service on its own:
+Build and run the helper alone:
 
 ```bash
 docker build -t web-content-extractor-helper -f docker/Dockerfile .
 docker run --rm -p 3050:3050 web-content-extractor-helper
 ```
 
-Serve the UI from nginx:
+Serve the UI (optional TLS) via nginx:
 
 ```bash
-# optional: create or refresh the self-signed TLS cert/key for HTTPS
+# optional: refresh the self-signed cert
 docker/generate-ssl.sh
 
 docker build -t web-content-extractor-ui -f docker/Dockerfile.web .
 docker run --rm -p 8080:80 web-content-extractor-ui
 ```
 
-Spin up the full stack via Compose:
+Compose the full stack:
 
 ```bash
 docker compose -f docker/docker-compose.yml up --build -d
 ```
 
-The `-d` flag keeps the stack running in the background; tail logs anytime with `docker compose -f docker/docker-compose.yml logs -f`.
+The compose file exposes the UI at `http://localhost:8080` and the helper at `http://localhost:3050`. It expects Ollama on the host; uncomment the `ollama` service and follow `docker/README.md` to containerize the model server.
 
-This exposes the UI at `http://localhost:8080` and the helper at `http://localhost:3050`. By default the compose file expects you to run Ollama on your host machine; point the UI to `http://localhost:11434` (or another host) after launching the stack. To run Ollama in a container instead, uncomment the `ollama` service in `docker/docker-compose.yml` and see `docker/README.md` for details and CORS guidance.
+## Configuration & Persistence Notes
 
-## Configuration Notes
+- Helper honours `PORT` (default `3050`).
+- UI uses `localStorage` keys:
+  - `playwrightServerUrl`
+  - `ollamaServerUrl`
+  - `ollamaModel`
+  - `uiTheme`
+- Wait time input accepts 1000–10000 ms in 500 ms steps; longer waits automatically widen navigation timeouts.
 
-- The helper honours `PORT` (default `3050`); adjust when running multiple instances.
-- Update the Playwright server URL field in the UI if you deploy the helper elsewhere (remote host, Docker container, etc.).
-- The `wait time` option instructs Playwright how long to pause for client-side rendering before content capture.
+## Repository Layout
+
+```
+web-content-extractor/
+├── extract-server.js
+├── web_content_extractor.html
+├── static/
+│   ├── favicon.png
+│   └── favicon.svg
+├── docker/
+│   ├── Dockerfile
+│   ├── Dockerfile.web
+│   ├── docker-compose.yml
+│   ├── generate-ssl.sh
+│   └── nginx.conf
+├── package.json
+├── package-lock.json
+└── README.md
+```
 
 ## Development Tips
 
-- The UI is a single static file—customize the styling or behaviour directly in `web_content_extractor.html`.
-- Playwright downloads sizeable browser binaries. Keep them cached locally and rely on `.gitignore` to avoid checking them into source control.
+- The UI is plain HTML/JS/CSS; iterate quickly by editing `web_content_extractor.html` and refreshing the browser.
+- Playwright downloads sizable browser binaries. Keep them cached locally; `.gitignore` already excludes `node_modules/` and Playwright artifacts.
+- Logs from the helper make troubleshooting straightforward—watch for navigation timeouts or Chromium launch failures if extractions stall.
 
 ## License
 
-This project is released under the MIT License (`LICENSE`) © 2025 Jansen Tang.
+MIT License (`LICENSE`) © 2025 Jansen Tang.
