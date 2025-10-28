@@ -561,6 +561,94 @@ button {
     white-space: normal;
 }
 
+.assistant-llm-reason {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+}
+
+.assistant-search-list {
+    margin-top: 12px;
+    margin-bottom: 0;
+    padding-left: 20px;
+    color: var(--text-primary);
+}
+
+.assistant-search-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 14px;
+}
+
+.assistant-search-button {
+    padding: 8px 14px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--panel-border);
+    background: var(--panel-bg);
+    color: var(--text-primary);
+    cursor: pointer;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.assistant-search-button:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.assistant-search-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+:root[data-theme="light"] .assistant-llm-reason {
+    background: rgba(15, 23, 42, 0.06);
+}
+
+:root[data-theme="light"] .assistant-search-button {
+    background: rgba(15, 23, 42, 0.05);
+}
+
+:root[data-theme="light"] .assistant-search-button:hover {
+    background: rgba(15, 23, 42, 0.12);
+}
+
+.assistant-tool-usage {
+    margin-top: 16px;
+    padding: 12px 14px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--panel-border);
+    background: rgba(255, 255, 255, 0.04);
+    font-size: 0.9rem;
+}
+
+.assistant-tool-label {
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.assistant-tool-usage ul {
+    margin: 0;
+    padding-left: 20px;
+    color: var(--text-primary);
+}
+
+.assistant-tool-name {
+    font-weight: 600;
+}
+
+:root[data-theme="light"] .assistant-tool-usage {
+    background: rgba(15, 23, 42, 0.05);
+}
+
 .chat-input-panel {
     position: sticky;
     bottom: 0;
@@ -979,6 +1067,15 @@ button {
         width: 38px;
         height: 38px;
     }
+
+    .assistant-search-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .assistant-search-button {
+        justify-content: center;
+    }
 }
     </style>
 </head>
@@ -1136,6 +1233,27 @@ const LLM_RESPONSE_FORMAT_HINT = [
     'Avoid including <script>, <iframe>, <object>, <embed>, <html>, <head>, or <body> tags.'
 ].join(' ');
 
+const OLLAMA_DEFAULT_TOOLS = [
+    {
+        type: 'function',
+        function: {
+            name: 'get_current_time',
+            description: 'Return the current system time. Use when the user asks for the time or when fresh timestamps are useful.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    format: {
+                        type: 'string',
+                        description: 'Optional format. Use "iso" for ISO-8601, or "locale" for a human readable local time.',
+                        enum: ['iso', 'locale']
+                    }
+                },
+                additionalProperties: false
+            }
+        }
+    }
+];
+
 let currentTheme = 'dark';
 
 function updateThemeToggle(theme) {
@@ -1246,6 +1364,7 @@ function appendConversationMessage(role, html) {
     bubble.className = 'conversation-bubble';
     bubble.dataset.role = primaryRole;
     bubble.innerHTML = html;
+    scrubTokensInElement(bubble);
 
     const isStatus = roleParts.includes('status');
     if (!isStatus) {
@@ -1266,6 +1385,7 @@ function updateConversationMessage(messageEl, html) {
     const bubble = messageEl.querySelector('.conversation-bubble');
     if (bubble) {
         bubble.innerHTML = html;
+        scrubTokensInElement(bubble);
         requestAnimationFrame(scrollConversationToEnd);
     }
 }
@@ -1295,6 +1415,7 @@ function renderAssistantLoading(text = 'Working…') {
 }
 
 function renderAssistantResponse(llmHtml, data, extractionIndex) {
+    const cleaned = cleanPlaceholderArtifacts(llmHtml);
     const detailsHtml = data ? renderExtractionDetails(data, extractionIndex) : '';
     return `
         <div class="bubble-header">
@@ -1303,9 +1424,255 @@ function renderAssistantResponse(llmHtml, data, extractionIndex) {
                 <button type="button" class="bubble-copy" data-copy="assistant">Copy</button>
             </div>
         </div>
-        <div class="assistant-llm">${llmHtml}</div>
+        <div class="assistant-llm">${cleaned}</div>
         ${detailsHtml}
     `;
+}
+
+function renderToolUsageSummary(executions) {
+    if (!Array.isArray(executions) || executions.length === 0) {
+        return '';
+    }
+    const items = executions.map((execution, index) => {
+        const name = escapeHtml(execution.name || `Tool ${index + 1}`);
+        const display = escapeHtml(execution.display || execution.content || '');
+        return `<li><span class="assistant-tool-name">${name}</span> → ${display}</li>`;
+    }).join('');
+    return `
+        <div class="assistant-tool-usage">
+            <div class="assistant-tool-label">Tools used</div>
+            <ul>${items}</ul>
+        </div>
+    `;
+}
+
+function escapeAttribute(value) {
+    return escapeHtml(String(value)).replace(/"/g, '&quot;');
+}
+
+function scrubTokensInElement(root) {
+    if (!root) return;
+    try {
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+        const toUpdate = [];
+        while (walker.nextNode()) {
+            toUpdate.push(walker.currentNode);
+        }
+        const re1 = /@@[^@\s][^@]*@@/g; // tokens wrapped in @@..@@
+        const re2 = /__[_A-Z]+[0-9_]*__/gi; // __BOLD0__, __EM1__, etc
+        const re3 = /_([A-Z]+[0-9]*)_/g; // _BOLD0_
+        for (const node of toUpdate) {
+            const before = node.nodeValue;
+            const after = before.replace(re1, '').replace(re2, '').replace(re3, '');
+            if (after !== before) {
+                node.nodeValue = after;
+            }
+        }
+        if (root.innerHTML) {
+            const cleaned = cleanPlaceholderArtifacts(root.innerHTML);
+            if (cleaned !== root.innerHTML) {
+                root.innerHTML = cleaned;
+            }
+        }
+    } catch (err) {
+        console.warn('scrubTokensInElement failed:', err);
+    }
+}
+
+function stripPlaceholderTokens(value) {
+    if (typeof value !== 'string') {
+        return value;
+    }
+    return value
+        .replace(/@@[A-Z0-9_:-]+@@/gi, '')
+        .replace(/__[_A-Z]+[0-9_]*__/gi, '')
+        .replace(/_([A-Z]+[0-9]*)_/g, '');
+}
+
+function cleanPlaceholderArtifacts(html) {
+    if (typeof html !== 'string') {
+        return html;
+    }
+    return stripPlaceholderTokens(html).replace(/@@[^@\s][^@]*@@/g, '');
+}
+
+function parseToolArguments(rawArgs) {
+    if (!rawArgs) {
+        return {};
+    }
+    if (typeof rawArgs === 'object') {
+        return rawArgs;
+    }
+    try {
+        return JSON.parse(rawArgs);
+    } catch (error) {
+        console.warn('Unable to parse tool arguments:', rawArgs, error);
+        return { _parse_error: 'Invalid JSON arguments', raw: String(rawArgs) };
+    }
+}
+
+function runGetCurrentTimeTool(args = {}) {
+    const parsed = typeof args === 'object' && args !== null ? args : {};
+    const now = new Date();
+    const iso = now.toISOString();
+    const locale = now.toLocaleString();
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+    const requestedFormat = typeof parsed.format === 'string' ? parsed.format.toLowerCase() : 'iso';
+    const primary =
+        requestedFormat === 'locale' || requestedFormat === 'local'
+            ? locale
+            : iso;
+
+    const payload = {
+        current_time: primary,
+        iso,
+        locale,
+        timezone,
+        format_used: requestedFormat === 'locale' || requestedFormat === 'local' ? 'locale' : 'iso'
+    };
+
+    return {
+        name: 'get_current_time',
+        content: JSON.stringify(payload),
+        display: `${primary} (${timezone})`,
+        arguments: parsed
+    };
+}
+
+async function executeOllamaToolCall(toolCall) {
+    const fn = toolCall?.function || {};
+    const name = fn.name || toolCall?.name || 'unknown_tool';
+    const args = parseToolArguments(fn.arguments ?? toolCall?.arguments ?? {});
+
+    switch (name) {
+        case 'get_current_time':
+            return runGetCurrentTimeTool(args);
+        default:
+            const errorPayload = {
+                error: `Tool "${name}" is not implemented.`,
+                receivedArguments: args
+            };
+            return {
+                name,
+                content: JSON.stringify(errorPayload),
+                display: 'Unsupported tool call',
+                arguments: args,
+                error: true
+            };
+    }
+}
+
+function normalizeModelOutput(text) {
+    if (typeof text !== 'string') {
+        return text;
+    }
+    let normalized = stripPlaceholderTokens(text);
+    normalized = normalized.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n');
+    return normalized.trim();
+}
+
+function truncateText(value, limit = 80) {
+    const text = String(value);
+    return text.length > limit ? `${text.slice(0, limit - 1)}…` : text;
+}
+
+function extractJsonCandidate(raw) {
+    raw = normalizeModelOutput(raw);
+    if (!raw) return null;
+    const codeMatch = raw.match(/```json\s*([\s\S]+?)```/i);
+    if (codeMatch) {
+        return codeMatch[1].trim();
+    }
+    const firstBrace = raw.indexOf('{');
+    const lastBrace = raw.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+        return raw.slice(firstBrace, lastBrace + 1);
+    }
+    return null;
+}
+
+function parseInstructionDecision(raw) {
+    const candidate = extractJsonCandidate(raw?.trim() || '');
+    if (!candidate) {
+        return null;
+    }
+    try {
+        const data = JSON.parse(candidate);
+        if (!data || typeof data !== 'object') {
+            return null;
+        }
+        const decision = typeof data.decision === 'string'
+            ? data.decision.trim().toLowerCase()
+            : '';
+        if (!decision || !['answer', 'search'].includes(decision)) {
+            return null;
+        }
+        const normalizeList = (value) => Array.isArray(value)
+            ? value.map(item => String(item || '').trim()).filter(Boolean)
+            : [];
+        return {
+            decision,
+            reason: typeof data.reason === 'string' ? normalizeModelOutput(data.reason) : '',
+            answer: typeof data.answer === 'string' ? normalizeModelOutput(data.answer) : '',
+            searchQueries: normalizeList(data.search_queries || data.queries).map(normalizeModelOutput),
+            suggestedUrls: normalizeList(data.suggested_urls || data.urls).map(normalizeModelOutput)
+        };
+    } catch (error) {
+        console.warn('Unable to parse decision JSON:', error);
+        return null;
+    }
+}
+
+function renderInstructionDecision(decisionData) {
+    if (!decisionData) {
+        return null;
+    }
+
+    const parts = [];
+    if (decisionData.reason) {
+        parts.push(`<div class="assistant-llm-reason">${convertMarkdownToHtml(decisionData.reason)}</div>`);
+    }
+
+    if (decisionData.decision === 'answer') {
+        const answer = decisionData.answer || '(No answer returned.)';
+        parts.push(convertMarkdownToHtml(answer));
+        return cleanPlaceholderArtifacts(parts.join('\n'));
+    }
+
+    const listItems = [];
+    decisionData.searchQueries.forEach(query => {
+        listItems.push(`<li>${escapeHtml(query)}</li>`);
+    });
+    decisionData.suggestedUrls.forEach(url => {
+        listItems.push(`<li>${escapeHtml(url)}</li>`);
+    });
+    if (listItems.length) {
+        parts.push(`<ul class="assistant-search-list">${listItems.join('')}</ul>`);
+    }
+
+    const actionButtons = [];
+    decisionData.searchQueries.forEach(query => {
+        actionButtons.push(`
+            <button type="button" class="assistant-search-button" data-search-query="${escapeAttribute(query)}">
+                🔍 Search “${escapeHtml(truncateText(query, 60))}”
+            </button>
+        `);
+    });
+    decisionData.suggestedUrls.forEach(url => {
+        actionButtons.push(`
+            <button type="button" class="assistant-search-button" data-search-url="${escapeAttribute(url)}">
+                🌐 Open ${escapeHtml(truncateText(url, 40))}
+            </button>
+        `);
+    });
+
+    if (actionButtons.length) {
+        parts.push(`<div class="assistant-search-actions">${actionButtons.join('')}</div>`);
+    } else {
+        parts.push('<p>No actionable search queries were provided.</p>');
+    }
+
+    return cleanPlaceholderArtifacts(parts.join('\n'));
 }
 
 function renderExtractionDetails(data, extractionIndex) {
@@ -1377,15 +1744,13 @@ function renderExtractionDetails(data, extractionIndex) {
 }
 
 function sanitizePreformattedHtml(value) {
+    value = normalizeModelOutput(value);
     return value
         .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '')
-        .replace(/\son\w+\s*=\s*(["']).*?\1/gi, '')
-        .replace(/href\s*=\s*(["'])\s*javascript:[^"']*\1/gi, 'href="#"')
-        .replace(/src\s*=\s*(["'])\s*javascript:[^"']*\1/gi, '');
-}
-
-function escapeAttribute(value) {
-    return escapeHtml(value).replace(/"/g, '&quot;');
+        .replace(/\son\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+        .replace(/\shref\s*=\s*(?:"\s*javascript:[^"]*"|'\s*javascript:[^']*'|javascript:[^\s>]*)/gi, ' href="#"')
+        .replace(/\ssrc\s*=\s*(?:"\s*javascript:[^"]*"|'\s*javascript:[^']*'|javascript:[^\s>]*)/gi, '')
+        .replace(/<\/?(?:iframe|embed|object|link|meta)[\s\S]*?>/gi, '');
 }
 
 function sanitizeLinkUrl(url) {
@@ -1572,17 +1937,17 @@ function renderLlmOutput(message) {
         return '<em>(Unexpected LLM response format.)</em>';
     }
 
-    const trimmed = message.trim();
+    const trimmed = normalizeModelOutput(message);
     if (!trimmed) {
         return '<em>(LLM returned an empty response.)</em>';
     }
 
     const sanitized = sanitizePreformattedHtml(trimmed);
     if (/<\/?[a-z][\s\S]*>/i.test(sanitized)) {
-        return sanitized;
+        return cleanPlaceholderArtifacts(normalizeModelOutput(sanitized));
     }
 
-    return convertMarkdownToHtml(sanitized);
+    return cleanPlaceholderArtifacts(normalizeModelOutput(convertMarkdownToHtml(sanitized))); 
 }
 
 function scrollConversationToEnd() {
@@ -1727,6 +2092,15 @@ if (conversationEl) {
             return;
         }
 
+        const searchActionButton = event.target.closest('.assistant-search-button');
+        if (searchActionButton) {
+            executeSearchRecommendation(searchActionButton).catch(error => {
+                console.error('Search recommendation execution failed:', error);
+                showError(`Search failed: ${error.message}`);
+            });
+            return;
+        }
+
         const copyButton = event.target.closest('.assistant-download-button');
         if (copyButton) {
             const container = copyButton.closest('.assistant-extraction');
@@ -1761,17 +2135,12 @@ function extractFirstUrl(text) {
 async function runTask() {
     const instruction = (taskInputElement?.value || '').trim();
     if (!instruction) {
-        showError('Please provide an instruction that includes at least one URL.');
+        showError('Please enter an instruction.');
         return;
     }
 
     const targetUrl = extractFirstUrl(instruction);
-    if (!targetUrl) {
-        showError('Please include at least one valid URL in your instruction.');
-        return;
-    }
-
-    if (!isValidUrl(targetUrl)) {
+    if (targetUrl && !isValidUrl(targetUrl)) {
         showError('The URL detected in your instruction is not valid. Please double-check it.');
         return;
     }
@@ -1780,12 +2149,28 @@ async function runTask() {
     if (taskInputElement) {
         taskInputElement.value = '';
     }
+
+    hideMessages();
+
+    if (!targetUrl) {
+        pendingAssistantMessage = appendConversationMessage('assistant', renderAssistantLoading('Consulting LLM...'));
+        try {
+            await handleInstructionWithoutUrl(instruction, pendingAssistantMessage);
+        } catch (error) {
+            const message = `<div class="assistant-error">${escapeHtml(error.message)}</div>`;
+            updateConversationMessage(pendingAssistantMessage, message);
+            showError(`Unable to process the instruction: ${error.message}`);
+        } finally {
+            pendingAssistantMessage = null;
+        }
+        return;
+    }
+
     pendingAssistantMessage = appendConversationMessage('assistant', renderAssistantLoading('Extracting page content...'));
 
     extractedData = null;
     updateLlmSendAvailability();
 
-    hideMessages();
     showProgress();
     setProgress(0, 'Preparing to extract content...');
 
@@ -1830,6 +2215,205 @@ async function runTask() {
     }
 }
 
+async function handleInstructionWithoutUrl(instruction, messageEl) {
+    const modelSelect = document.getElementById('ollamaModel');
+    if (!modelSelect || !modelSelect.value) {
+        const placeholder = '<p>No URL detected. Choose an Ollama model under Settings to get a direct answer, or provide a URL for extraction.</p>';
+        updateConversationMessage(messageEl, renderAssistantResponse(placeholder, null));
+        showWarning('Select an Ollama model to answer instructions without URLs.');
+        setLlmStatus('warning', 'Select an Ollama model to answer instructions without URLs.');
+        return;
+    }
+
+    const sendButton = document.getElementById('llmSendButton');
+    if (sendButton) {
+        sendButton.disabled = true;
+    }
+
+    showLlmProgress('Preparing LLM request...', 10);
+    setLlmStatus('info', `Sending instruction to ${modelSelect.value}...`);
+
+    let baseUrl = 'http://localhost:11434';
+    try {
+        baseUrl = getOllamaBaseUrl();
+    } catch (error) {
+        hideLlmProgress();
+        setLlmStatus('error', error.message);
+        const errorHtml = `<div class="assistant-error">${escapeHtml(error.message)}</div>`;
+        updateConversationMessage(messageEl, renderAssistantResponse(errorHtml, null));
+        if (sendButton) {
+            sendButton.disabled = !(extractedData && modelSelect.value);
+        }
+        return;
+    }
+
+    const decisionPrompt = [
+        'You are an assistant embedded in a web content extraction tool.',
+        'The user provided an instruction with no URLs.',
+        'Return ONLY a JSON object (no extra text) using this schema:',
+        '{',
+        '  "decision": "answer" | "search",',
+        '  "reason": "Why you chose this path.",',
+        '  "answer": "Direct Markdown-formatted reply (required when decision is \\"answer\\").",',
+        '  "search_queries": ["Suggested search phrases..."],',
+        '  "suggested_urls": ["Optional direct URLs to visit."]',
+        '}',
+        'When decision == "answer", include a concise, current answer in the "answer" field.',
+        'When decision == "search", provide at least one search query or URL in the appropriate arrays.',
+        'Use standard Markdown in strings; avoid placeholder tokens like @@ or XML.'
+    ].join('\n');
+
+    const assembledPrompt = `${decisionPrompt}
+
+User instruction:
+${instruction}`;
+
+    try {
+        updateLlmProgress(35, `Sending request to ${baseUrl}...`);
+        const response = await fetch(`${baseUrl}/api/generate`, {
+            method: 'POST',
+            mode: 'cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                model: modelSelect.value,
+                prompt: assembledPrompt,
+                stream: false
+            })
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Ollama responded with ${response.status}: ${errorText}`);
+        }
+
+        updateLlmProgress(70, 'Waiting for LLM response...');
+        const result = await response.json();
+        const message = result?.response || result?.message || '(No response text received.)';
+        updateLlmProgress(100, 'LLM response received.');
+
+        const decisionData = parseInstructionDecision(message);
+        if (decisionData) {
+            if (decisionData.decision === 'search') {
+                const decisionHtml = renderInstructionDecision(decisionData) || renderLlmOutput(message);
+                updateConversationMessage(
+                    messageEl,
+                    renderAssistantResponse(decisionHtml, null)
+                );
+                setLlmStatus('info', 'Search recommended. Use the suggested actions to continue.');
+            } else {
+                await generateInstructionAnswer(instruction, messageEl, decisionData);
+            }
+        } else {
+            const llmHtml = renderLlmOutput(message);
+            updateConversationMessage(
+                messageEl,
+                renderAssistantResponse(llmHtml, null)
+            );
+            setLlmStatus('success', `Response generated with ${modelSelect.value}.`);
+        }
+    } catch (error) {
+        console.error('Instruction-only LLM request failed:', error);
+        updateLlmProgress(0, 'LLM request failed.');
+        let errorMessage = error?.message || 'Failed to reach Ollama.';
+        if (error instanceof TypeError || /Failed to fetch/i.test(errorMessage)) {
+            const currentOrigin = window.location.origin || 'file://';
+            errorMessage = [
+                'Browser blocked the request to Ollama (likely CORS).',
+                'Restart Ollama with CORS enabled, for example:',
+                '  export OLLAMA_ORIGINS="*"',
+                '  ollama serve',
+                `or allow the UI origin explicitly: OLLAMA_ORIGINS="${currentOrigin}"`,
+                `Attempted endpoint: ${baseUrl}/api/chat`
+            ].join('\n');
+        }
+        setLlmStatus('error', errorMessage);
+        const errorHtml = `<div class="assistant-error">${escapeHtml(errorMessage)}</div>`;
+        updateConversationMessage(
+            messageEl,
+            renderAssistantResponse(errorHtml, null)
+        );
+        showError(`LLM request failed: ${errorMessage}`);
+    } finally {
+        setTimeout(() => hideLlmProgress(), 1500);
+        if (sendButton) {
+            sendButton.disabled = !(extractedData && modelSelect && modelSelect.value);
+        }
+        updateLlmSendAvailability();
+    }
+}
+
+function buildSearchUrl(query) {
+    if (!query) {
+        return '';
+    }
+    return `https://duckduckgo.com/?q=${encodeURIComponent(query.trim())}`;
+}
+
+async function executeSearchRecommendation(button) {
+    if (!button) {
+        return;
+    }
+
+    const query = (button.dataset.searchQuery || '').trim();
+    const directUrl = (button.dataset.searchUrl || '').trim();
+    const targetUrl = directUrl || buildSearchUrl(query);
+
+    if (!targetUrl) {
+        showWarning('No search target available for this action.');
+        return;
+    }
+
+    const instruction = directUrl
+        ? `Fetch latest information from ${directUrl}`
+        : `Search the web for "${query}" and summarise the findings.`;
+
+    button.disabled = true;
+
+    hideMessages();
+    showProgress();
+    setProgress(0, directUrl ? 'Preparing to fetch page...' : 'Preparing web search...');
+
+    const assistantMessage = appendConversationMessage('assistant', renderAssistantLoading(directUrl ? 'Fetching page content...' : 'Searching the web...'));
+
+    setLlmStatus('info', directUrl ? 'Fetching suggested URL...' : 'Running suggested search...');
+
+    extractedData = null;
+    updateLlmSendAvailability();
+
+    try {
+        const content = await extractContent(targetUrl);
+        const record = { ...content, instruction };
+        const extractionIndex = extractionHistory.push(record) - 1;
+        record.extractionIndex = extractionIndex;
+        extractedData = record;
+        updateLlmSendAvailability();
+
+        setProgress(100, 'Extraction complete!');
+        hideProgress();
+        showSuccess('Content extracted successfully!');
+
+        updateConversationMessage(assistantMessage, renderAssistantLoading('Generating LLM response...'));
+
+        const modelSelect = document.getElementById('ollamaModel');
+        if (modelSelect && modelSelect.value) {
+            setLlmStatus('info', 'Generating response with your Ollama model...');
+            await sendToLLM(true, assistantMessage, extractionIndex);
+        } else {
+            const placeholder = '<p>Extraction complete. Choose an Ollama model under Settings, then click “Send to Ollama”.</p>';
+            updateConversationMessage(assistantMessage, renderAssistantResponse(placeholder, record, extractionIndex));
+            setLlmStatus('warning', 'Extraction ready. Choose an Ollama model and click “Send to Ollama” to continue.');
+        }
+    } catch (error) {
+        setProgress(0, 'Error occurred');
+        hideProgress();
+        const messageHtml = `<div class="assistant-error">${escapeHtml(error.message)}</div>`;
+        updateConversationMessage(assistantMessage, renderAssistantResponse(messageHtml, null));
+        showError(`Failed to complete the task: ${error.message}`);
+    } finally {
+        button.disabled = false;
+    }
+}
+
 async function extractContent(url) {
     const parser = new DOMParser();
     setProgress(25, 'Launching Playwright browser...');
@@ -1859,6 +2443,287 @@ async function extractContent(url) {
     }
 
     throw new Error('Unable to retrieve content from the URL. Playwright and fallback methods failed.');
+}
+
+function extractOllamaMessageContent(message) {
+    if (!message) {
+        return '';
+    }
+    const content = message.content ?? '';
+    if (typeof content === 'string') {
+        return content;
+    }
+    if (Array.isArray(content)) {
+        return content
+            .map(part => (typeof part === 'string' ? part : part?.text || ''))
+            .join('');
+    }
+    if (content && typeof content === 'object') {
+        return content.text || content.content || '';
+    }
+    return '';
+}
+
+function isToolSupportError(status, text) {
+    if (!status) {
+        return false;
+    }
+    if (status === 404 || status === 405) {
+        return true;
+    }
+    if (status === 400 && typeof text === 'string') {
+        return /tool/i.test(text) || /unsupported/i.test(text);
+    }
+    return false;
+}
+
+async function chatWithOllama(options) {
+    const {
+        baseUrl,
+        model,
+        messages,
+        enableTools = false,
+        maxIterations = 4,
+        onToolCall,
+        onIteration
+    } = options || {};
+
+    if (!baseUrl || !model || !Array.isArray(messages)) {
+        throw new Error('Invalid chat configuration.');
+    }
+
+    const conversation = messages.map(message => ({ ...message }));
+    const toolExecutions = [];
+
+    for (let iteration = 0; iteration < Math.max(1, maxIterations); iteration += 1) {
+        if (typeof onIteration === 'function') {
+            try {
+                onIteration(iteration, conversation);
+            } catch (callbackError) {
+                console.warn('chatWithOllama iteration callback failed:', callbackError);
+            }
+        }
+
+        const body = {
+            model,
+            messages: conversation,
+            stream: false
+        };
+
+        if (enableTools) {
+            body.tools = OLLAMA_DEFAULT_TOOLS;
+            body.tool_choice = 'auto';
+        }
+
+        const response = await fetch(`${baseUrl}/api/chat`, {
+            method: 'POST',
+            mode: 'cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            const error = new Error(`Ollama responded with ${response.status}: ${errorText || 'Unknown error'}`);
+            if (enableTools && isToolSupportError(response.status, errorText)) {
+                error.code = 'OLLAMA_TOOLS_UNSUPPORTED';
+            }
+            throw error;
+        }
+
+        const result = await response.json();
+        const message = result?.message || result?.messages?.slice?.(-1)?.[0];
+        if (!message) {
+            return {
+                result,
+                finalContent: result?.response || '',
+                toolExecutions
+            };
+        }
+
+        const toolCalls = enableTools ? (message.tool_calls || message.toolCalls || []) : [];
+        const hasToolCalls = Array.isArray(toolCalls) && toolCalls.length > 0;
+
+        if (hasToolCalls) {
+            const assistantMsg = {
+                role: message.role || 'assistant',
+                content: message.content || '',
+                tool_calls: toolCalls
+            };
+            conversation.push(assistantMsg);
+            for (const toolCall of toolCalls) {
+                if (typeof onToolCall === 'function') {
+                    try {
+                        onToolCall(toolCall);
+                    } catch (callbackError) {
+                        console.warn('chatWithOllama tool callback failed:', callbackError);
+                    }
+                }
+                const execution = await executeOllamaToolCall(toolCall);
+                toolExecutions.push({
+                    ...execution,
+                    callId: toolCall?.id || `${execution.name || 'tool'}-${Date.now()}`
+                });
+                const toolMessage = {
+                    role: 'tool',
+                    content: execution.content,
+                    name: execution.name
+                };
+                if (toolCall?.id) {
+                    toolMessage.tool_call_id = toolCall.id;
+                }
+                conversation.push(toolMessage);
+            }
+            continue;
+        }
+
+        const content = extractOllamaMessageContent(message) || result?.response || '';
+        return {
+            result,
+            message,
+            finalContent: content,
+            toolExecutions
+        };
+    }
+
+    throw new Error('Tool loop exceeded maximum iterations without producing an answer.');
+}
+
+async function generateInstructionAnswer(instruction, messageEl, decisionData) {
+    const modelSelect = document.getElementById('ollamaModel');
+    if (!modelSelect || !modelSelect.value) {
+        showError('Select an Ollama model before sending.');
+        return;
+    }
+
+    updateConversationMessage(messageEl, renderAssistantLoading('Generating answer...'));
+    showLlmProgress('Preparing answer...', 20);
+    setLlmStatus('info', `Generating answer with ${modelSelect.value}...`);
+
+    let baseUrl = 'http://localhost:11434';
+    try {
+        baseUrl = getOllamaBaseUrl();
+    } catch (error) {
+        hideLlmProgress();
+        setLlmStatus('error', error.message);
+        const errorHtml = `<div class="assistant-error">${escapeHtml(error.message)}</div>`;
+        updateConversationMessage(
+            messageEl,
+            renderAssistantResponse(errorHtml, null)
+        );
+        return;
+    }
+
+    const reasonHtml = decisionData?.reason
+        ? `<div class="assistant-llm-reason">${convertMarkdownToHtml(decisionData.reason)}</div>`
+        : '';
+
+    const systemPrompt = [
+        'You are an assistant embedded in a web content extraction tool.',
+        'You have access to these callable tools:',
+        '- get_current_time(format: \"iso\" | \"locale\"): Returns the current system time and timezone.',
+        'Always call get_current_time when you need exact or fresh date/time information.',
+        'Follow the formatting guidance exactly:',
+        LLM_RESPONSE_FORMAT_HINT
+    ].join('\n');
+
+    const messages = [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: instruction }
+    ];
+
+    try {
+        let chatResult;
+        let usedTools = true;
+        try {
+            chatResult = await chatWithOllama({
+                baseUrl,
+                model: modelSelect.value,
+                messages,
+                enableTools: true,
+                maxIterations: 4,
+                onIteration: iteration => {
+                    const status = iteration === 0 ? `Sending request to ${baseUrl}...` : 'Processing tool results...';
+                    updateLlmProgress(45 + iteration * 12, status);
+                },
+                onToolCall: toolCall => {
+                    const toolName = toolCall?.function?.name || 'tool';
+                    setLlmStatus('info', `Running ${toolName} via Ollama tools...`);
+                    updateLlmProgress(75, `Running ${toolName}...`);
+                }
+            });
+        } catch (toolError) {
+            if (toolError?.code === 'OLLAMA_TOOLS_UNSUPPORTED') {
+                usedTools = false;
+                console.warn('Ollama model appears not to support tools for instruction answers, retrying without them.');
+                setLlmStatus('warning', 'Model does not support tools. Retrying without tool calls.');
+                chatResult = await chatWithOllama({
+                    baseUrl,
+                    model: modelSelect.value,
+                    messages,
+                    enableTools: false,
+                    maxIterations: 1,
+                    onIteration: iteration => {
+                        const status = iteration === 0 ? `Sending request to ${baseUrl}...` : 'Waiting for response...';
+                        updateLlmProgress(45 + iteration * 15, status);
+                    }
+                });
+            } else {
+                throw toolError;
+            }
+        }
+
+        const finalContent = chatResult?.finalContent || decisionData?.answer || '(No response text received.)';
+        const toolExecutions = chatResult?.toolExecutions || [];
+        updateLlmProgress(100, 'LLM response received.');
+
+        let llmHtml = renderLlmOutput(finalContent);
+        if (reasonHtml) {
+            llmHtml = reasonHtml + llmHtml;
+        }
+        if (toolExecutions.length > 0) {
+            llmHtml += renderToolUsageSummary(toolExecutions);
+        }
+
+        updateConversationMessage(
+            messageEl,
+            renderAssistantResponse(llmHtml, null)
+        );
+
+        if (toolExecutions.length > 0) {
+            const summary = toolExecutions.map(exec => exec.name || 'tool').join(', ');
+            setLlmStatus('success', `Response generated with ${modelSelect.value}. Tools used: ${summary}.`);
+        } else if (usedTools) {
+            setLlmStatus('success', `Response generated with ${modelSelect.value}. No tools were required.`);
+        } else {
+            setLlmStatus('success', `Response generated with ${modelSelect.value}. (Tools unsupported.)`);
+        }
+    } catch (error) {
+        console.error('Instruction answer generation failed:', error);
+        updateLlmProgress(0, 'LLM request failed.');
+        let errorMessage = error?.message || 'Failed to reach Ollama.';
+        if (error instanceof TypeError || /Failed to fetch/i.test(errorMessage)) {
+            const currentOrigin = window.location.origin || 'file://';
+            errorMessage = [
+                'Browser blocked the request to Ollama (likely CORS).',
+                'Restart Ollama with CORS enabled, for example:',
+                '  export OLLAMA_ORIGINS="*"',
+                '  ollama serve',
+                `or allow the UI origin explicitly: OLLAMA_ORIGINS="${currentOrigin}"`,
+                `Attempted endpoint: ${baseUrl}/api/chat`
+            ].join('\n');
+        }
+        setLlmStatus('error', errorMessage);
+        const fallbackAnswer = decisionData?.answer ? renderLlmOutput(decisionData.answer) : '';
+        const errorHtml = `<div class="assistant-error">${escapeHtml(errorMessage)}</div>${fallbackAnswer}`;
+        updateConversationMessage(
+            messageEl,
+            renderAssistantResponse(errorHtml, null)
+        );
+        showError(`LLM request failed: ${errorMessage}`);
+    } finally {
+        setTimeout(() => hideLlmProgress(), 1500);
+    }
 }
 
 async function sendToLLM(autoTriggered = false, messageEl = null, extractionIndex = extractedData?.extractionIndex) {
@@ -1925,35 +2790,85 @@ ${LLM_RESPONSE_FORMAT_HINT}`;
         return;
     }
 
-    try {
-        updateLlmProgress(35, `Sending request to ${baseUrl}...`);
-        const response = await fetch(`${baseUrl}/api/generate`, {
-            method: 'POST',
-            mode: 'cors',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                model: modelSelect.value,
-                prompt: assembledPrompt,
-                stream: false
-            })
-        });
+    const chatMessages = [
+        {
+            role: 'system',
+            content: [
+                'You are an assistant embedded in a web content extraction tool.',
+                'Use any provided tools when they help you answer accurately.',
+                'Follow the formatting guidance exactly:',
+                LLM_RESPONSE_FORMAT_HINT
+            ].join(' ')
+        },
+        {
+            role: 'user',
+            content: assembledPrompt
+        }
+    ];
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Ollama responded with ${response.status}: ${errorText}`);
+    try {
+        let chatResult;
+        let usedTools = true;
+        try {
+            chatResult = await chatWithOllama({
+                baseUrl,
+                model: modelSelect.value,
+                messages: chatMessages,
+                enableTools: true,
+                maxIterations: 4,
+                onIteration: iteration => {
+                    const status = iteration === 0 ? `Sending request to ${baseUrl}...` : 'Processing tool results...';
+                    updateLlmProgress(45 + iteration * 12, status);
+                },
+                onToolCall: toolCall => {
+                    const toolName = toolCall?.function?.name || 'tool';
+                    setLlmStatus('info', `Running ${toolName} via Ollama tools...`);
+                    updateLlmProgress(75, `Running ${toolName}...`);
+                }
+            });
+        } catch (toolError) {
+            if (toolError?.code === 'OLLAMA_TOOLS_UNSUPPORTED') {
+                usedTools = false;
+                console.warn('Ollama model appears not to support tools, retrying without them.');
+                setLlmStatus('warning', 'Model does not support tools. Retrying without tool calls.');
+                chatResult = await chatWithOllama({
+                    baseUrl,
+                    model: modelSelect.value,
+                    messages: chatMessages,
+                    enableTools: false,
+                    maxIterations: 1,
+                    onIteration: iteration => {
+                        const status = iteration === 0 ? `Sending request to ${baseUrl}...` : 'Waiting for response...';
+                        updateLlmProgress(45 + iteration * 15, status);
+                    }
+                });
+            } else {
+                throw toolError;
+            }
         }
 
-        updateLlmProgress(70, 'Waiting for LLM response...');
-        const result = await response.json();
-        const message = result?.response || result?.message || '(No response text received.)';
+        const finalContent = chatResult?.finalContent || '(No response text received.)';
+        const toolExecutions = chatResult?.toolExecutions || [];
         updateLlmProgress(100, 'LLM response received.');
 
-        const llmHtml = renderLlmOutput(message);
+        let llmHtml = renderLlmOutput(finalContent);
+        if (toolExecutions.length > 0) {
+            llmHtml += renderToolUsageSummary(toolExecutions);
+        }
+
         updateConversationMessage(
             assistantMessage,
             renderAssistantResponse(llmHtml, currentExtraction, extractionIndex)
         );
-        setLlmStatus('success', `Response generated with ${modelSelect.value}.`);
+
+        if (toolExecutions.length > 0) {
+            const summary = toolExecutions.map(exec => exec.name || 'tool').join(', ');
+            setLlmStatus('success', `Response generated with ${modelSelect.value}. Tools used: ${summary}.`);
+        } else if (usedTools) {
+            setLlmStatus('success', `Response generated with ${modelSelect.value}. No tools were required.`);
+        } else {
+            setLlmStatus('success', `Response generated with ${modelSelect.value}.`);
+        }
     } catch (error) {
         console.error('Ollama request failed:', error);
         updateLlmProgress(0, 'LLM request failed.');
@@ -2412,6 +3327,18 @@ function updateLlmSendAvailability() {
     sendButton.disabled = !(hasModel && extractedData);
 }
 
+function hasMeaningfulHtml(html) {
+    if (!html) {
+        return false;
+    }
+    const trimmed = html.trim();
+    if (!trimmed) {
+        return false;
+    }
+    const textOnly = trimmed.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+    return trimmed.length >= 20 || textOnly.length >= 20;
+}
+
 
 async function tryMultipleExtractionMethods(url) {
             let html = '';
@@ -2425,7 +3352,7 @@ async function tryMultipleExtractionMethods(url) {
                 const response = await fetch(proxyUrl);
                 if (response.ok) {
                     html = await response.text();
-                    if (html && html.length > 100) { // Reasonable content length
+                    if (hasMeaningfulHtml(html)) {
                         return html;
                     }
                 }
@@ -2439,7 +3366,7 @@ async function tryMultipleExtractionMethods(url) {
                 const response = await fetch(textiseUrl);
                 if (response.ok) {
                     html = await response.text();
-                    if (html && html.length > 100) {
+                    if (hasMeaningfulHtml(html)) {
                         return html;
                     }
                 }
@@ -2454,7 +3381,7 @@ async function tryMultipleExtractionMethods(url) {
                     const response = await fetch(textiseAltUrl);
                     if (response.ok) {
                         html = await response.text();
-                        if (html && html.length > 100) {
+                        if (hasMeaningfulHtml(html)) {
                             return html;
                         }
                     }
@@ -2469,7 +3396,7 @@ async function tryMultipleExtractionMethods(url) {
                 const response = await fetch(textiseHttpsUrl);
                 if (response.ok) {
                     html = await response.text();
-                    if (html && html.length > 100) {
+                    if (hasMeaningfulHtml(html)) {
                         return html;
                     }
                 }
@@ -2497,7 +3424,7 @@ async function tryMultipleExtractionMethods(url) {
                     const response = await fetch(serviceUrl);
                     if (response.ok) {
                         const html = await response.text();
-                        if (html && html.length > 100 && !html.includes('JavaScript is disabled')) {
+                        if (hasMeaningfulHtml(html) && !html.includes('JavaScript is disabled')) {
                             return html;
                         }
                     }
@@ -2515,7 +3442,7 @@ async function tryMultipleExtractionMethods(url) {
                 const response = await fetch(waybackUrl);
                 if (response.ok) {
                     const html = await response.text();
-                    if (html && html.length > 100 && !html.includes('JavaScript is disabled')) {
+                    if (hasMeaningfulHtml(html) && !html.includes('JavaScript is disabled')) {
                         return html;
                     }
                 }
@@ -3219,24 +4146,27 @@ async function copyExtractionContent(format, extractionIndex) {
                     content = JSON.stringify(data, null, 2);
                     label = 'JSON';
                     break;
-                case 'html':
+                case 'html': {
+                    const safeTitle = escapeHtml(data.metadata?.title || 'Extracted Content');
+                    const safeBody = escapeHtml(formatForLLM(data) || '');
                     content = `<!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>${data.metadata?.title || 'Extracted Content'}</title>
+    <title>${safeTitle}</title>
     <style>
         body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 5px; }
         pre { background: #f5f5f5; padding: 3.75px; border-radius: 5px; overflow-x: auto; }
     </style>
 </head>
 <body>
-    <h1>${data.metadata?.title || 'Extracted Content'}</h1>
-    <pre>${formatForLLM(data)}</pre>
+    <h1>${safeTitle}</h1>
+    <pre>${safeBody}</pre>
 </body>
 </html>`;
                     label = 'HTML';
                     break;
+                }
                 default:
                     showError('Unsupported copy format requested.');
                     return;
