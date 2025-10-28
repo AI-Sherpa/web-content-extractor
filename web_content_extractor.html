@@ -645,6 +645,10 @@ button {
     font-weight: 600;
 }
 
+.assistant-tool-usage li.assistant-tool-error {
+    color: var(--status-error-color);
+}
+
 :root[data-theme="light"] .assistant-tool-usage {
     background: rgba(15, 23, 42, 0.05);
 }
@@ -1251,6 +1255,46 @@ const OLLAMA_DEFAULT_TOOLS = [
                 additionalProperties: false
             }
         }
+    },
+    {
+        type: 'function',
+        function: {
+            name: 'render_with_playwright',
+            description: 'Render a URL with the configured Playwright helper to capture dynamic HTML content. Use when a page requires JavaScript to load.',
+            parameters: {
+                type: 'object',
+                required: ['url'],
+                properties: {
+                    url: {
+                        type: 'string',
+                        description: 'The absolute URL to render (http/https).'
+                    },
+                    wait_time: {
+                        type: 'integer',
+                        description: 'Optional wait time in milliseconds before capturing the page. Defaults to the UI wait time slider.',
+                        minimum: 0,
+                        maximum: 120000
+                    },
+                    include_images: {
+                        type: 'boolean',
+                        description: 'Override whether image alt text should be captured.'
+                    },
+                    include_links: {
+                        type: 'boolean',
+                        description: 'Override whether link text should be captured.'
+                    },
+                    include_metadata: {
+                        type: 'boolean',
+                        description: 'Override whether metadata should be captured.'
+                    },
+                    clean_content: {
+                        type: 'boolean',
+                        description: 'Override whether to clean text content before returning.'
+                    }
+                },
+                additionalProperties: false
+            }
+        }
     }
 ];
 
@@ -1436,7 +1480,8 @@ function renderToolUsageSummary(executions) {
     const items = executions.map((execution, index) => {
         const name = escapeHtml(execution.name || `Tool ${index + 1}`);
         const display = escapeHtml(execution.display || execution.content || '');
-        return `<li><span class="assistant-tool-name">${name}</span> → ${display}</li>`;
+        const itemClass = execution.error ? ' class="assistant-tool-error"' : '';
+        return `<li${itemClass}><span class="assistant-tool-name">${name}</span> → ${display}</li>`;
     }).join('');
     return `
         <div class="assistant-tool-usage">
@@ -1496,6 +1541,212 @@ function cleanPlaceholderArtifacts(html) {
     return stripPlaceholderTokens(html).replace(/@@[^@\s][^@]*@@/g, '');
 }
 
+function getOverrideValue(source, keys) {
+    if (!source || typeof source !== 'object') {
+        return undefined;
+    }
+    for (const key of keys) {
+        if (Object.prototype.hasOwnProperty.call(source, key)) {
+            return source[key];
+        }
+    }
+    return undefined;
+}
+
+function coerceBoolean(value, fallback) {
+    if (typeof value === 'boolean') {
+        return value;
+    }
+    if (typeof value === 'string') {
+        if (/^(true|1|yes|on)$/i.test(value)) {
+            return true;
+        }
+        if (/^(false|0|no|off)$/i.test(value)) {
+            return false;
+        }
+    }
+    return fallback;
+}
+
+function coercePositiveInteger(value, fallback) {
+    const number = Number.parseInt(value, 10);
+    if (Number.isFinite(number) && number > 0) {
+        return number;
+    }
+    return fallback;
+}
+
+async function requestPlaywrightHtml(url, overrides = {}) {
+    const targetUrl = String(url || '').trim();
+    if (!targetUrl) {
+        throw new Error('No URL provided for Playwright rendering.');
+    }
+
+    const endpoint = getPlaywrightEndpoint();
+    const waitTimeInput = document.getElementById('waitTime');
+    const defaultWait = coercePositiveInteger(waitTimeInput?.value, 3000);
+    const overrideWait = getOverrideValue(overrides, ['wait_time', 'waitTime']);
+    const waitTime = coercePositiveInteger(overrideWait, defaultWait);
+
+    const includeImagesDefault = document.getElementById('includeImages')?.checked ?? false;
+    const includeLinksDefault = document.getElementById('includeLinks')?.checked ?? false;
+    const includeMetadataDefault = document.getElementById('includeMetadata')?.checked ?? true;
+    const cleanContentDefault = document.getElementById('cleanContent')?.checked ?? true;
+
+    const includeImages = coerceBoolean(getOverrideValue(overrides, ['include_images', 'includeImages']), includeImagesDefault);
+    const includeLinks = coerceBoolean(getOverrideValue(overrides, ['include_links', 'includeLinks']), includeLinksDefault);
+    const includeMetadata = coerceBoolean(getOverrideValue(overrides, ['include_metadata', 'includeMetadata']), includeMetadataDefault);
+    const cleanContent = coerceBoolean(getOverrideValue(overrides, ['clean_content', 'cleanContent']), cleanContentDefault);
+
+    let response;
+    try {
+        response = await fetch(endpoint, {
+            method: 'POST',
+            mode: 'cors',
+            credentials: 'omit',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                url: targetUrl,
+                waitTime,
+                options: {
+                    includeImages,
+                    includeLinks,
+                    includeMetadata,
+                    cleanContent
+                }
+            })
+        });
+    } catch (networkError) {
+        const message = networkError?.message || '';
+        if (message.includes('Failed to fetch') || message.includes('NetworkError')) {
+            showPlaywrightInstructions(message);
+            const error = new Error('Playwright server not reachable. See instructions below to set up browser automation.');
+            error.code = 'PLAYWRIGHT_HELPER_UNREACHABLE';
+            throw error;
+        }
+        throw networkError;
+    }
+
+    if (!response.ok) {
+        if ([404, 405].includes(response.status)) {
+            showPlaywrightInstructions(`The Playwright helper server responded with status ${response.status}. Confirm it is running at ${endpoint} and accepts POST requests.`);
+            const statusText = response.status === 405 ? 'Method Not Allowed' : 'Not Found';
+            throw new Error(`Playwright helper server returned ${response.status} (${statusText}).`);
+        }
+        const errorText = await response.text();
+        throw new Error(`Playwright server error: ${response.status}${errorText ? ` - ${errorText}` : ''}`);
+    }
+
+    let result;
+    try {
+        result = await response.json();
+    } catch (error) {
+        throw new Error('Playwright server returned an invalid JSON payload.');
+    }
+
+    if (!result || !result.success) {
+        throw new Error(result?.error || 'Playwright extraction failed.');
+    }
+
+    return {
+        html: String(result.html || ''),
+        waitTime,
+        includeImages,
+        includeLinks,
+        includeMetadata,
+        cleanContent
+    };
+}
+
+async function runPlaywrightExtractionTool(args = {}) {
+    const parsed = typeof args === 'object' && args !== null ? args : {};
+    const targetUrl = String(parsed.url || parsed.href || '').trim();
+    if (!targetUrl) {
+        const payload = { error: 'Missing required parameter "url".', receivedArguments: parsed };
+        return {
+            name: 'render_with_playwright',
+            content: JSON.stringify(payload),
+            display: 'Error: missing url',
+            arguments: parsed,
+            error: true
+        };
+    }
+
+    try {
+        const { html, waitTime, includeImages, includeLinks, includeMetadata, cleanContent } =
+            await requestPlaywrightHtml(targetUrl, parsed);
+
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html || '', 'text/html');
+        const extraction = {
+            url: targetUrl,
+            timestamp: new Date().toISOString(),
+            metadata: extractMetadata(doc),
+            content: extractMainContent(doc),
+            links: extractLinks(doc),
+            images: extractImages(doc),
+            structure: extractStructure(doc),
+            extractionMethod: 'playwright-tool'
+        };
+
+        extraction.links = Array.isArray(extraction.links) ? extraction.links.slice(0, 50) : [];
+        extraction.images = Array.isArray(extraction.images) ? extraction.images.slice(0, 30) : [];
+
+        const formatted = formatForLLM(extraction);
+        const markdown = convertToMarkdown(extraction);
+
+        const MAX_HTML_LENGTH = 120000;
+        const truncated = (html || '').length > MAX_HTML_LENGTH;
+        const trimmedHtml = truncated ? `${html.slice(0, MAX_HTML_LENGTH)}<!-- Truncated -->` : html;
+
+        const payload = {
+            success: true,
+            url: targetUrl,
+            fetched_at: extraction.timestamp,
+            wait_time: waitTime,
+            options: {
+                include_images: includeImages,
+                include_links: includeLinks,
+                include_metadata: includeMetadata,
+                clean_content: cleanContent
+            },
+            html: trimmedHtml,
+            html_truncated: truncated,
+            html_length: (html || '').length,
+            summary: formatted,
+            markdown,
+            metadata: extraction.metadata,
+            structure: extraction.structure,
+            links: extraction.links,
+            images: extraction.images,
+            extraction_method: extraction.extractionMethod
+        };
+
+        const display = `Rendered ${truncateText(targetUrl, 60)} (${(html || '').length.toLocaleString()} chars)`;
+
+        return {
+            name: 'render_with_playwright',
+            content: JSON.stringify(payload),
+            display,
+            arguments: parsed
+        };
+    } catch (error) {
+        console.error('Playwright tool execution failed:', error);
+        const payload = {
+            error: error?.message || 'Playwright tool failed.',
+            url: targetUrl,
+            receivedArguments: parsed
+        };
+        return {
+            name: 'render_with_playwright',
+            content: JSON.stringify(payload),
+            display: `Error: ${error?.message || 'Playwright tool failed.'}`,
+            arguments: parsed,
+            error: true
+        };
+    }
+}
+
 function parseToolArguments(rawArgs) {
     if (!rawArgs) {
         return {};
@@ -1547,6 +1798,8 @@ async function executeOllamaToolCall(toolCall) {
     switch (name) {
         case 'get_current_time':
             return runGetCurrentTimeTool(args);
+        case 'render_with_playwright':
+            return await runPlaywrightExtractionTool(args);
         default:
             const errorPayload = {
                 error: `Tool "${name}" is not implemented.`,
@@ -2621,8 +2874,10 @@ async function generateInstructionAnswer(instruction, messageEl, decisionData) {
     const systemPrompt = [
         'You are an assistant embedded in a web content extraction tool.',
         'You have access to these callable tools:',
-        '- get_current_time(format: \"iso\" | \"locale\"): Returns the current system time and timezone.',
+        '- get_current_time(format: "iso" | "locale"): Returns the current system time and timezone.',
+        '- render_with_playwright(url, wait_time?, include_images?, include_links?, include_metadata?, clean_content?): Renders a URL with the Playwright helper to capture dynamic HTML.',
         'Always call get_current_time when you need exact or fresh date/time information.',
+        'Call render_with_playwright when a page depends on JavaScript for its content.',
         'Follow the formatting guidance exactly:',
         LLM_RESPONSE_FORMAT_HINT
     ].join('\n');
@@ -2796,6 +3051,8 @@ ${LLM_RESPONSE_FORMAT_HINT}`;
             content: [
                 'You are an assistant embedded in a web content extraction tool.',
                 'Use any provided tools when they help you answer accurately.',
+                'Available tools: get_current_time (returns the current system time) and render_with_playwright (renders a URL with the Playwright helper for JavaScript-heavy pages).',
+                'Call render_with_playwright when static fetching is insufficient or the page relies on JavaScript for content.',
                 'Follow the formatting guidance exactly:',
                 LLM_RESPONSE_FORMAT_HINT
             ].join(' ')
@@ -3549,49 +3806,13 @@ async function tryMultipleExtractionMethods(url) {
         async function extractWithPlaywright(url) {
             try {
                 setProgress(35, 'Starting Playwright browser...');
-                
-                const endpoint = getPlaywrightEndpoint();
-                
-                // Use Playwright to launch real Chrome browser
-                const response = await fetch(endpoint, {
-                    method: 'POST',
-                    mode: 'cors',
-                    credentials: 'omit',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        url: url,
-                        waitTime: parseInt(document.getElementById('waitTime').value),
-                        options: {
-                            includeImages: document.getElementById('includeImages').checked,
-                            includeLinks: document.getElementById('includeLinks').checked,
-                            includeMetadata: document.getElementById('includeMetadata').checked,
-                            cleanContent: document.getElementById('cleanContent').checked
-                        }
-                    })
-                });
-                
-                if (!response.ok) {
-                    if ([404, 405].includes(response.status)) {
-                        showPlaywrightInstructions(`The Playwright helper server responded with status ${response.status}. Confirm it is running at ${endpoint} and accepts POST requests.`);
-                        const statusText = response.status === 405 ? 'Method Not Allowed' : 'Not Found';
-                        throw new Error(`Playwright helper server returned ${response.status} (${statusText}).`);
-                    }
-                    throw new Error(`Playwright server error: ${response.status}`);
-                }
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    setProgress(65, 'Browser extraction successful...');
-                    return result.html;
-                } else {
-                    throw new Error(result.error || 'Playwright extraction failed');
-                }
-                
+                const { html } = await requestPlaywrightHtml(url);
+                setProgress(65, 'Browser extraction successful...');
+                return html;
             } catch (error) {
-                // If Playwright server is not available, show instructions
+                if (error?.code === 'PLAYWRIGHT_HELPER_UNREACHABLE') {
+                    throw error;
+                }
                 if (error.message.includes('Failed to fetch') || error.message.includes('Invalid Playwright server URL')) {
                     showPlaywrightInstructions(error.message);
                     throw new Error('Playwright server not reachable. See instructions below to set up browser automation.');
