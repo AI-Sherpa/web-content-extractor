@@ -259,6 +259,33 @@ button {
     color: var(--text-primary);
 }
 
+.option-description {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 6px;
+    line-height: 1.4;
+}
+
+.playwright-mode-toggle {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+}
+
+.playwright-mode-toggle label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+#playwrightServer:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 :root[data-theme="light"] .sidebar-list li {
     background: rgba(15, 23, 42, 0.05);
 }
@@ -727,6 +754,59 @@ button {
     background: rgba(15, 23, 42, 0.06);
 }
 
+.assistant-tool-decision {
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.assistant-tool-decision-title {
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.assistant-tool-decision-args {
+    margin: 0;
+    padding-left: 18px;
+    color: var(--text-muted);
+}
+
+.assistant-tool-decision-args li {
+    margin-bottom: 4px;
+}
+
+.assistant-tool-decision-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-muted);
+}
+
+.assistant-tool-decision-status.success {
+    color: var(--status-success-color);
+}
+
+.assistant-tool-decision-status.error {
+    color: var(--status-error-color);
+}
+
+:root[data-theme="light"] .assistant-tool-decision-status.success {
+    color: var(--accent);
+}
+
+:root[data-theme="light"] .assistant-tool-decision-status.error {
+    color: var(--status-error-color);
+}
+
+.assistant-tool-decision-details {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
 :root[data-theme="light"] .assistant-search-button {
     background: rgba(15, 23, 42, 0.05);
 }
@@ -760,6 +840,17 @@ button {
 
 .assistant-tool-name {
     font-weight: 600;
+}
+
+.assistant-tool-meta {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.assistant-search-note {
+    margin-top: 8px;
+    font-size: 0.85rem;
+    color: var(--text-muted);
 }
 
 .assistant-tool-usage li.assistant-tool-error {
@@ -1286,11 +1377,29 @@ button {
                                 <input type="checkbox" id="cleanContent" checked>
                                 <span>Clean &amp; Format Content</span>
                             </label>
+                            <label class="option-group">
+                                <input type="checkbox" id="blockMedia">
+                                <span>Block CSS &amp; heavy media requests</span>
+                            </label>
                         </div>
                         <div class="toggle-grid">
                             <label class="option-group option-group-wide">
                                 <span>Playwright Server URL</span>
                                 <input type="url" id="playwrightServer" value="http://localhost:3050" placeholder="http://localhost:3050">
+                            </label>
+                            <label class="option-group option-group-wide">
+                                <span class="option-label">Playwright Helper Mode</span>
+                                <div class="playwright-mode-toggle" role="radiogroup" aria-label="Playwright helper mode">
+                                    <label>
+                                        <input type="radio" name="playwrightMode" value="embedded" checked>
+                                        Embedded (near-instant)
+                                    </label>
+                                    <label>
+                                        <input type="radio" name="playwrightMode" value="container">
+                                        Containerised helper
+                                    </label>
+                                </div>
+                                <p class="option-description">Embedded mode keeps a warm Chromium instance inside this app for fastest results. Container mode targets an external helper (Docker or remote host).</p>
                             </label>
                             <label class="option-group">
                                 <span>Wait Time (ms)</span>
@@ -1352,13 +1461,61 @@ const LLM_RESPONSE_FORMAT_HINT = [
     'Wrap code samples in <pre><code>...</code></pre> blocks.',
     'Avoid including <script>, <iframe>, <object>, <embed>, <html>, <head>, or <body> tags.'
 ].join(' ');
+const PLAYWRIGHT_MODE_STORAGE_KEY = 'playwrightHelperMode';
+const PLAYWRIGHT_CACHE_LIMIT = 32;
+const PLAYWRIGHT_CACHE_TTL_MS = 2 * 60 * 1000;
+const PLAYWRIGHT_EMBEDDED_ENDPOINT = '/api/playwright/extract';
 const CHAT_HISTORY_STORAGE_KEY = 'chatHistorySessions';
 const ACTIVE_CHAT_STORAGE_KEY = 'activeChatSessionId';
 const CHAT_HISTORY_LIMIT = 30;
 const CHAT_DEFAULT_TITLE = 'New chat';
+const PLAYWRIGHT_HOST_CANONICAL_MAP = {
+    'youtu.be': 'youtube.com',
+    'm.youtube.com': 'youtube.com',
+    'music.youtube.com': 'youtube.com',
+    'youtube-nocookie.com': 'youtube.com',
+    'news.google.com': 'google.com',
+    'maps.google.com': 'google.com'
+};
+const PLAYWRIGHT_DEFAULT_SEARCH_PROVIDER = 'google';
+const PLAYWRIGHT_SEARCH_PROVIDERS = {
+    google: {
+        key: 'google',
+        label: 'Google Search',
+        host: 'google.com',
+        buildUrl(query) {
+            const trimmed = String(query || '').trim();
+            return `https://www.google.com/search?q=${encodeURIComponent(trimmed)}&hl=en`;
+        }
+    },
+    duckduckgo: {
+        key: 'duckduckgo',
+        label: 'DuckDuckGo Search',
+        host: 'duckduckgo.com',
+        buildUrl(query) {
+            const trimmed = String(query || '').trim();
+            return `https://duckduckgo.com/?q=${encodeURIComponent(trimmed)}`;
+        }
+    },
+    bing: {
+        key: 'bing',
+        label: 'Bing Search',
+        host: 'bing.com',
+        buildUrl(query) {
+            const trimmed = String(query || '').trim();
+            return `https://www.bing.com/search?q=${encodeURIComponent(trimmed)}`;
+        }
+    }
+};
+const PLAYWRIGHT_SEARCH_PROVIDER_KEYS = Object.keys(PLAYWRIGHT_SEARCH_PROVIDERS);
+const PLAYWRIGHT_ALLOWED_SECONDARY_HOSTS = new Set(PLAYWRIGHT_SEARCH_PROVIDER_KEYS.map(key => PLAYWRIGHT_SEARCH_PROVIDERS[key].host));
 let chatSessions = [];
 let activeChatId = null;
 let isRestoringChat = false;
+const playwrightRenderCache = new Map();
+let playwrightHelperMode = 'embedded';
+let playwrightServerInput = null;
+let playwrightModeRadios = [];
 
 const OLLAMA_DEFAULT_TOOLS = [
     {
@@ -1378,24 +1535,32 @@ const OLLAMA_DEFAULT_TOOLS = [
                 additionalProperties: false
             }
         }
-    },
-    {
-        type: 'function',
-        function: {
-            name: 'render_with_playwright',
-            description: 'Render a URL with the configured Playwright helper to capture dynamic HTML content. Use when a page requires JavaScript to load.',
-            parameters: {
-                type: 'object',
-                required: ['url'],
-                properties: {
-                    url: {
-                        type: 'string',
-                        description: 'The absolute URL to render (http/https).'
-                    },
-                    wait_time: {
-                        type: 'integer',
-                        description: 'Optional wait time in milliseconds before capturing the page. Defaults to the UI wait time slider.',
-                        minimum: 0,
+        },
+        {
+            type: 'function',
+            function: {
+                name: 'render_with_playwright',
+                description: 'Render a URL or live web search with the Playwright helper to capture dynamic HTML content. Use for JavaScript-heavy pages, realtime site checks, or when you need search results.',
+                parameters: {
+                    type: 'object',
+                    properties: {
+                        url: {
+                            type: 'string',
+                            description: 'The absolute URL to render (http/https).'
+                        },
+                        query: {
+                            type: 'string',
+                            description: 'Search query to run when you need live web results. When provided, the helper will construct the search URL (defaults to Google).'
+                        },
+                        search_provider: {
+                            type: 'string',
+                            description: 'Optional search provider to pair with the query parameter. Supported values: google (default), duckduckgo, bing.',
+                            enum: PLAYWRIGHT_SEARCH_PROVIDER_KEYS
+                        },
+                        wait_time: {
+                            type: 'integer',
+                            description: 'Optional wait time in milliseconds before capturing the page. Defaults to the UI wait time slider.',
+                            minimum: 0,
                         maximum: 120000
                     },
                     include_images: {
@@ -1625,7 +1790,19 @@ function renderToolUsageSummary(executions) {
         const name = escapeHtml(execution.name || `Tool ${index + 1}`);
         const display = escapeHtml(execution.display || execution.content || '');
         const itemClass = execution.error ? ' class="assistant-tool-error"' : '';
-        return `<li${itemClass}><span class="assistant-tool-name">${name}</span> → ${display}</li>`;
+        const meta = [];
+        if (execution.cached) {
+            meta.push('cached');
+        }
+        if (execution.forceRefreshed) {
+            meta.push('refreshed');
+        }
+        if (execution.searchProvider) {
+            const providerLabel = getSearchProviderConfig(execution.searchProvider).label;
+            meta.push(providerLabel);
+        }
+        const suffix = meta.length ? ` <span class="assistant-tool-meta">(${meta.join(', ')})</span>` : '';
+        return `<li${itemClass}><span class="assistant-tool-name">${name}</span> → ${display}${suffix}</li>`;
     }).join('');
     return `
         <div class="assistant-tool-usage">
@@ -1635,8 +1812,248 @@ function renderToolUsageSummary(executions) {
     `;
 }
 
+
+function formatToolArgValue(value) {
+    if (value === null || value === undefined) {
+        return '';
+    }
+    if (typeof value === 'string') {
+        return truncateText(value, 140);
+    }
+    if (typeof value === 'number' || typeof value === 'boolean') {
+        return String(value);
+    }
+    try {
+        return truncateText(JSON.stringify(value), 140);
+    } catch {
+        return '';
+    }
+}
+
+function describeToolCall(toolCall) {
+    const name = toolCall?.function?.name || toolCall?.name || 'tool';
+    let parsedArgs = {};
+    try {
+        parsedArgs = parseToolArguments(toolCall?.function?.arguments ?? toolCall?.arguments ?? {});
+    } catch (error) {
+        console.warn('Unable to parse tool arguments for display:', error);
+        parsedArgs = {};
+    }
+    const details = [];
+    const urlValue = parsedArgs.url || parsedArgs.href;
+    if (urlValue) {
+        details.push({ label: 'URL', value: formatToolArgValue(urlValue) });
+    }
+    if (parsedArgs.query) {
+        details.push({ label: 'Query', value: formatToolArgValue(parsedArgs.query) });
+    }
+    const providerKey = parsedArgs.search_provider || parsedArgs.searchProvider;
+    if (providerKey) {
+        const provider = getSearchProviderConfig(providerKey);
+        const providerLabel = provider ? provider.label : formatToolArgValue(providerKey);
+        details.push({ label: 'Search provider', value: providerLabel });
+    }
+    const waitTimeValue = parsedArgs.wait_time ?? parsedArgs.waitTime;
+    if (waitTimeValue !== undefined) {
+        details.push({ label: 'Wait time', value: `${waitTimeValue} ms` });
+    }
+    ['include_images', 'include_links', 'include_metadata', 'clean_content', 'block_media', 'use_cache'].forEach(key => {
+        if (parsedArgs[key] !== undefined) {
+            const normalisedLabel = key.replace(/_/g, ' ');
+            details.push({
+                label: `${normalisedLabel.charAt(0).toUpperCase()}${normalisedLabel.slice(1)}`,
+                value: String(parsedArgs[key])
+            });
+        }
+    });
+    if (!details.length && parsedArgs && typeof parsedArgs === 'object') {
+        Object.entries(parsedArgs)
+            .slice(0, 3)
+            .forEach(([key, value]) => {
+                details.push({ label: key, value: formatToolArgValue(value) });
+            });
+    }
+    return { name, details };
+}
+
+function extractExecutionMessage(execution) {
+    if (!execution) {
+        return '';
+    }
+    if (typeof execution.display === 'string' && execution.display.trim()) {
+        return execution.display.trim();
+    }
+    if (typeof execution.content === 'string') {
+        try {
+            const parsed = JSON.parse(execution.content);
+            if (parsed && typeof parsed.error === 'string' && parsed.error.trim()) {
+                return parsed.error.trim();
+            }
+        } catch {
+            // ignore JSON parse errors
+        }
+    }
+    return '';
+}
+
+function renderToolDecision(descriptor, state = {}) {
+    const { name, details } = descriptor;
+    const detailHtml = details.length
+        ? `<ul class="assistant-tool-decision-args">${details
+              .map(detail => `<li><strong>${escapeHtml(detail.label)}:</strong> ${escapeHtml(detail.value || '')}</li>`)
+              .join('')}</ul>`
+        : `<div class="assistant-tool-decision-details">No arguments provided.</div>`;
+
+    let statusClass = 'assistant-tool-decision-status';
+    let statusContent = '';
+    if (state.status === 'error') {
+        statusClass += ' error';
+        statusContent = `⚠️ <span>${escapeHtml(state.message || 'Tool execution failed.')}</span>`;
+    } else if (state.status === 'success') {
+        statusClass += ' success';
+        statusContent = `✅ <span>${escapeHtml(state.message || 'Completed successfully.')}</span>`;
+    } else {
+        const spinner = '<span class="assistant-loading-inline"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span>';
+        statusContent = `${spinner}<span>${escapeHtml(state.message || 'Running…')}</span>`;
+    }
+
+    const extraLines = Array.isArray(state.detailLines) ? state.detailLines.filter(Boolean) : [];
+    const extrasHtml = extraLines.length
+        ? `<div class="assistant-tool-decision-details">${extraLines.map(line => escapeHtml(line)).join('<br>')}</div>`
+        : '';
+
+    return `
+        <div class="assistant-tool-decision">
+            <div class="assistant-tool-decision-title">Calling tool: <code>${escapeHtml(name)}</code></div>
+            ${detailHtml}
+            <div class="${statusClass}">${statusContent}</div>
+            ${extrasHtml}
+        </div>
+    `;
+}
+
+function announceToolDecision(toolCall) {
+    if (!conversationEl) {
+        return null;
+    }
+    try {
+        const descriptor = describeToolCall(toolCall);
+        const html = renderToolDecision(descriptor, { status: 'running' });
+        return appendConversationMessage('assistant status tool-decision', html, { skipHistory: true });
+    } catch (error) {
+        console.warn('Unable to announce tool decision:', error);
+        return null;
+    }
+}
+
+function updateToolDecisionMessage(messageEl, toolCall, execution, errorInfo) {
+    if (!messageEl) {
+        return;
+    }
+    try {
+        const descriptor = describeToolCall(toolCall);
+        const explicitError = typeof errorInfo === 'string'
+            ? errorInfo
+            : errorInfo && errorInfo.message
+                ? errorInfo.message
+                : '';
+        const computedMessage = explicitError || extractExecutionMessage(execution);
+        const isError = Boolean(explicitError) || Boolean(execution && execution.error);
+        const detailLines = [];
+        if (execution) {
+            const flags = [];
+            if (execution.cached) {
+                flags.push('cached result');
+            }
+            if (execution.forceRefreshed || execution.force_refreshed) {
+                flags.push('force refreshed');
+            }
+            if (execution.searchQuery) {
+                detailLines.push(`Search query: ${truncateText(execution.searchQuery, 80)}`);
+            }
+            if (execution.searchProvider || execution.search_provider) {
+                const provider = getSearchProviderConfig(execution.searchProvider || execution.search_provider);
+                if (provider) {
+                    detailLines.push(`Search provider: ${provider.label}`);
+                }
+            }
+            if (flags.length) {
+                detailLines.push(`Flags: ${flags.join(', ')}`);
+            }
+        }
+        const state = {
+            status: isError ? 'error' : 'success',
+            message: computedMessage || (isError ? 'Tool execution failed.' : 'Completed successfully.'),
+            detailLines
+        };
+        const html = renderToolDecision(descriptor, state);
+        updateConversationMessage(messageEl, html, { skipHistory: true });
+    } catch (error) {
+        console.warn('Unable to update tool decision message:', error);
+    }
+}
+
+function buildToolFallbackContent(execution, reason = '') {
+    if (!execution) {
+        return '';
+    }
+    const reasonLine = reason || 'Tool loop stopped after repeated tool calls.';
+    if (execution.name === 'render_with_playwright') {
+        try {
+            const payload = JSON.parse(execution.content || '{}');
+            const summary = typeof payload.summary === 'string' ? normalizeModelOutput(payload.summary) : '';
+            const markdown = typeof payload.markdown === 'string' ? payload.markdown : '';
+            const body = summary || markdown || execution.display || execution.content || '';
+            return [reasonLine, '', body].filter(Boolean).join('\n');
+        } catch (error) {
+            console.warn('Unable to parse Playwright tool payload for fallback content:', error);
+        }
+    }
+    const body = execution.display || execution.content || '';
+    return [reasonLine, '', body].filter(Boolean).join('\n');
+}
+
 function escapeAttribute(value) {
     return escapeHtml(String(value)).replace(/"/g, '&quot;');
+}
+
+function isLikelyFallbackHtml(html, hostname) {
+    if (!html) {
+        return true;
+    }
+    const canonicalHost = canonicalizeHostname(hostname || '');
+    const lower = html.toLowerCase();
+
+    if (canonicalHost === 'youtube.com') {
+        if (/ytInitialData/.test(html) || /ytInitialPlayerResponse/.test(html)) {
+            return false;
+        }
+        if (html.length > 20000 && lower.includes('ytmusic')) {
+            return false;
+        }
+        return (
+            lower.includes('before you continue to youtube') ||
+            lower.includes('consent') ||
+            lower.includes('enable javascript') ||
+            lower.includes('403 forbidden') ||
+            html.length < 20000
+        );
+    }
+
+    const fallbackIndicators = [
+        'enable javascript',
+        'javascript is required',
+        '403 forbidden',
+        'captcha',
+        'access denied',
+        'api is locked down'
+    ];
+
+    if (fallbackIndicators.some(indicator => lower.includes(indicator))) {
+        return true;
+    }
+
+    return html.length < 1500;
 }
 
 function stripHtmlToText(html) {
@@ -1656,7 +2073,7 @@ function cloneExtractionData(data) {
         try {
             return structuredClone(data);
         } catch (error) {
-            // ignore and fall back
+            // fall back
         }
     }
     return JSON.parse(JSON.stringify(data));
@@ -1872,6 +2289,64 @@ function renderActiveChatConversation() {
     hideProgress();
 }
 
+function getEmbeddedPlaywrightEndpoint() {
+    let origin = 'http://localhost:3050';
+    if (window.location && window.location.origin && window.location.origin !== 'null') {
+        origin = window.location.origin.replace(/\/$/, '');
+    }
+    return `${origin}${PLAYWRIGHT_EMBEDDED_ENDPOINT}`;
+}
+
+function applyPlaywrightMode(mode, persist = true) {
+    const normalized = mode === 'container' ? 'container' : 'embedded';
+    playwrightHelperMode = normalized;
+    if (persist) {
+        try {
+            localStorage.setItem(PLAYWRIGHT_MODE_STORAGE_KEY, normalized);
+        } catch (error) {
+            console.warn('Unable to persist Playwright helper mode:', error);
+        }
+    }
+    playwrightRenderCache.clear();
+    playwrightModeRadios.forEach(radio => {
+        if (radio.value === normalized) {
+            radio.checked = true;
+        } else if (normalized === 'embedded' && !radio.value) {
+            radio.checked = true;
+        }
+    });
+    if (playwrightServerInput) {
+        const containerSelected = normalized === 'container';
+        playwrightServerInput.disabled = !containerSelected;
+        if (!containerSelected) {
+            playwrightServerInput.setAttribute('placeholder', `${getEmbeddedPlaywrightEndpoint()}`);
+        } else {
+            playwrightServerInput.setAttribute('placeholder', playwrightServerInput.dataset.defaultPlaceholder || 'http://localhost:3050');
+        }
+    }
+}
+
+function initializePlaywrightMode() {
+    playwrightModeRadios = Array.from(document.querySelectorAll('input[name="playwrightMode"]'));
+    let storedMode = 'embedded';
+    try {
+        const saved = localStorage.getItem(PLAYWRIGHT_MODE_STORAGE_KEY);
+        if (saved) {
+            storedMode = saved;
+        }
+    } catch (error) {
+        console.warn('Unable to load Playwright helper mode:', error);
+    }
+    applyPlaywrightMode(storedMode, false);
+    playwrightModeRadios.forEach(radio => {
+        radio.addEventListener('change', event => {
+            if (event.target.checked) {
+                applyPlaywrightMode(event.target.value);
+            }
+        });
+    });
+}
+
 function createChatSession(title = CHAT_DEFAULT_TITLE) {
     const timestamp = new Date().toISOString();
     return {
@@ -1976,6 +2451,7 @@ function clearChatHistory() {
     }
     chatSessions = [];
     activeChatId = null;
+    playwrightRenderCache.clear();
     try {
         localStorage.removeItem(CHAT_HISTORY_STORAGE_KEY);
         localStorage.removeItem(ACTIVE_CHAT_STORAGE_KEY);
@@ -2182,21 +2658,35 @@ async function requestPlaywrightHtml(url, overrides = {}) {
         throw new Error('No URL provided for Playwright rendering.');
     }
 
-    const endpoint = getPlaywrightEndpoint();
+    const helperMode = playwrightHelperMode || 'embedded';
+    const endpoint = getPlaywrightEndpoint(helperMode);
+
     const waitTimeInput = document.getElementById('waitTime');
     const defaultWait = coercePositiveInteger(waitTimeInput?.value, 3000);
     const overrideWait = getOverrideValue(overrides, ['wait_time', 'waitTime']);
-    const waitTime = coercePositiveInteger(overrideWait, defaultWait);
+    const rawWait = coercePositiveInteger(overrideWait, defaultWait);
+    const minWait = helperMode === 'embedded' ? 200 : 350;
+    const maxWait = helperMode === 'embedded' ? 1200 : 2000;
+    const waitTime = Math.max(minWait, Math.min(rawWait, maxWait));
 
     const includeImagesDefault = document.getElementById('includeImages')?.checked ?? false;
     const includeLinksDefault = document.getElementById('includeLinks')?.checked ?? false;
     const includeMetadataDefault = document.getElementById('includeMetadata')?.checked ?? true;
     const cleanContentDefault = document.getElementById('cleanContent')?.checked ?? true;
+    const blockMediaDefault = document.getElementById('blockMedia')?.checked ?? false;
 
     const includeImages = coerceBoolean(getOverrideValue(overrides, ['include_images', 'includeImages']), includeImagesDefault);
     const includeLinks = coerceBoolean(getOverrideValue(overrides, ['include_links', 'includeLinks']), includeLinksDefault);
     const includeMetadata = coerceBoolean(getOverrideValue(overrides, ['include_metadata', 'includeMetadata']), includeMetadataDefault);
     const cleanContent = coerceBoolean(getOverrideValue(overrides, ['clean_content', 'cleanContent']), cleanContentDefault);
+    const blockMedia = coerceBoolean(getOverrideValue(overrides, ['block_media', 'blockMedia']), blockMediaDefault);
+
+    const cacheKey = `${helperMode}::${endpoint}::${targetUrl}::${blockMedia ? 'block' : 'allow'}`;
+    const useCache = coerceBoolean(getOverrideValue(overrides, ['use_cache', 'useCache']), true);
+    const cachedEntry = useCache ? playwrightRenderCache.get(cacheKey) : null;
+    if (cachedEntry && Date.now() - cachedEntry.timestamp < PLAYWRIGHT_CACHE_TTL_MS) {
+        return { ...cachedEntry.payload, cached: true };
+    }
 
     let response;
     try {
@@ -2208,11 +2698,15 @@ async function requestPlaywrightHtml(url, overrides = {}) {
             body: JSON.stringify({
                 url: targetUrl,
                 waitTime,
+                mode: helperMode,
                 options: {
                     includeImages,
                     includeLinks,
                     includeMetadata,
-                    cleanContent
+                    cleanContent,
+                    blockMedia,
+                    warmBrowser: true,
+                    useCache
                 }
             })
         });
@@ -2248,33 +2742,140 @@ async function requestPlaywrightHtml(url, overrides = {}) {
         throw new Error(result?.error || 'Playwright extraction failed.');
     }
 
-    return {
-        html: String(result.html || ''),
+    const MAX_HTML_LENGTH = 120000;
+    const html = String(result.html || '');
+    const truncated = html.length > MAX_HTML_LENGTH;
+    const trimmedHtml = truncated ? `${html.slice(0, MAX_HTML_LENGTH)}<!-- Truncated -->` : html;
+
+    let normalizedMetadata = null;
+    if (result.metadata && typeof result.metadata === 'object') {
+        try {
+            normalizedMetadata = JSON.parse(JSON.stringify(result.metadata));
+        } catch (metadataError) {
+            console.warn('Unable to serialise Playwright metadata payload:', metadataError);
+            normalizedMetadata = null;
+        }
+    }
+
+    const payload = {
+        html: trimmedHtml,
         waitTime,
         includeImages,
         includeLinks,
         includeMetadata,
-        cleanContent
+        cleanContent,
+        blockMedia,
+        metadata: normalizedMetadata,
+        cached: false
     };
+
+    playwrightRenderCache.set(cacheKey, { timestamp: Date.now(), payload });
+    if (playwrightRenderCache.size > PLAYWRIGHT_CACHE_LIMIT) {
+        const oldestKey = playwrightRenderCache.keys().next().value;
+        if (oldestKey) {
+            playwrightRenderCache.delete(oldestKey);
+        }
+    }
+
+    return payload;
 }
 
 async function runPlaywrightExtractionTool(args = {}) {
     const parsed = typeof args === 'object' && args !== null ? args : {};
-    const targetUrl = String(parsed.url || parsed.href || '').trim();
+    const rawUrl = typeof parsed.url === 'string' ? parsed.url : parsed.href;
+    const targetUrlInput = String(rawUrl || '').trim();
+    const queryInput = typeof parsed.query === 'string' ? parsed.query.trim() : '';
+    const providerKeyInput = typeof parsed.search_provider === 'string'
+        ? parsed.search_provider.trim().toLowerCase()
+        : '';
+    const searchProvider = getSearchProviderConfig(providerKeyInput);
+
+    let targetUrl = targetUrlInput;
+    let derivedFromQuery = false;
+
+    if (queryInput) {
+        const providerUrl = searchProvider.buildUrl(queryInput);
+        const providerHost = getHostname(providerUrl);
+        const targetHostInput = targetUrl ? getHostname(targetUrl) : '';
+        if (!targetUrl || targetHostInput === providerHost) {
+            if (!targetUrl) {
+                targetUrl = providerUrl;
+            }
+            derivedFromQuery = true;
+        }
+    }
+
     if (!targetUrl) {
-        const payload = { error: 'Missing required parameter "url".', receivedArguments: parsed };
+        const payload = { error: 'Provide either "url" or "query" when calling render_with_playwright.', receivedArguments: parsed };
         return {
             name: 'render_with_playwright',
             content: JSON.stringify(payload),
-            display: 'Error: missing url',
+            display: 'Error: missing url or query',
             arguments: parsed,
             error: true
         };
     }
 
     try {
-        const { html, waitTime, includeImages, includeLinks, includeMetadata, cleanContent } =
-            await requestPlaywrightHtml(targetUrl, parsed);
+        let rawTargetHost = '';
+        try {
+            rawTargetHost = new URL(targetUrl).hostname || targetUrl;
+        } catch {
+            rawTargetHost = targetUrl;
+        }
+        const targetHost = getHostname(targetUrl);
+        const primaryHost = getPrimaryExtractionHostname();
+        const guardHost = primaryHost && !isAllowedSecondaryHost(primaryHost) ? primaryHost : '';
+        const allowCrossOrigin =
+            derivedFromQuery ||
+            isAllowedSecondaryHost(targetHost);
+        if (guardHost && targetHost && targetHost !== guardHost && !allowCrossOrigin) {
+            const payload = {
+                error: `Playwright helper is restricted to ${guardHost}. Received url for ${targetHost || 'unknown host'}.`,
+                receivedArguments: parsed
+            };
+            return {
+                name: 'render_with_playwright',
+                content: JSON.stringify(payload),
+                display: `Error: cross-origin render blocked (${guardHost} expected, got ${rawTargetHost || 'unknown host'})`,
+                arguments: parsed,
+                error: true
+            };
+        }
+
+        let renderPayload = await requestPlaywrightHtml(targetUrl, parsed);
+
+        const needsFullRefresh =
+            renderPayload?.cached &&
+            isLikelyFallbackHtml(renderPayload.html, targetHost);
+
+        if (needsFullRefresh) {
+            try {
+                const refreshOverrides = {
+                    ...parsed,
+                    use_cache: false
+                };
+                if (coerceBoolean(getOverrideValue(parsed, ['block_media', 'blockMedia']), renderPayload.blockMedia)) {
+                    refreshOverrides.block_media = false;
+                }
+                renderPayload = await requestPlaywrightHtml(targetUrl, refreshOverrides);
+                renderPayload.forcedRefresh = true;
+            } catch (refreshError) {
+                console.warn('Playwright full refresh failed, continuing with cached content:', refreshError);
+            }
+        }
+
+        const {
+            html,
+            waitTime,
+            includeImages,
+            includeLinks,
+            includeMetadata,
+            cleanContent,
+            blockMedia,
+            cached,
+            forcedRefresh = false
+        } = renderPayload;
 
         const parser = new DOMParser();
         const doc = parser.parseFromString(html || '', 'text/html');
@@ -2289,6 +2890,59 @@ async function runPlaywrightExtractionTool(args = {}) {
             extractionMethod: 'playwright-tool'
         };
 
+        if (renderPayload.metadata && typeof renderPayload.metadata === 'object') {
+            const mergedMetadata = { ...(extraction.metadata || {}) };
+            Object.entries(renderPayload.metadata).forEach(([key, value]) => {
+                if (value === null || value === undefined || value === '') {
+                    return;
+                }
+                if (typeof value === 'object' && !Array.isArray(value)) {
+                    mergedMetadata[key] = {
+                        ...(value || {}),
+                        ...(mergedMetadata[key] || {})
+                    };
+                } else if (!mergedMetadata[key]) {
+                    mergedMetadata[key] = value;
+                }
+            });
+            mergedMetadata.playwright = {
+                ...(mergedMetadata.playwright || {}),
+                ...renderPayload.metadata
+            };
+            extraction.metadata = mergedMetadata;
+
+            const metadataSummaryLines = [];
+            if (renderPayload.metadata.title) {
+                metadataSummaryLines.push(`Title: ${renderPayload.metadata.title}`);
+            }
+            if (renderPayload.metadata.channel) {
+                metadataSummaryLines.push(`Channel: ${renderPayload.metadata.channel}`);
+            }
+            if (renderPayload.metadata.published) {
+                metadataSummaryLines.push(`Published: ${renderPayload.metadata.published}`);
+            }
+            if (renderPayload.metadata.viewCount) {
+                metadataSummaryLines.push(`Views: ${renderPayload.metadata.viewCount}`);
+            }
+            if (renderPayload.metadata.duration) {
+                metadataSummaryLines.push(`Duration: ${renderPayload.metadata.duration}`);
+            }
+            if (renderPayload.metadata.keywords) {
+                metadataSummaryLines.push(`Keywords: ${renderPayload.metadata.keywords}`);
+            }
+            if (renderPayload.metadata.description) {
+                metadataSummaryLines.push('');
+                metadataSummaryLines.push(renderPayload.metadata.description);
+            }
+            const metadataSummary = metadataSummaryLines.join('\n').trim();
+            if (metadataSummary && !/Playwright Captured Video Summary:/i.test(extraction.content || '')) {
+                const injectedBlock = `Playwright Captured Video Summary:\n${metadataSummary}`;
+                extraction.content = extraction.content
+                    ? `${injectedBlock}\n\n${extraction.content}`
+                    : injectedBlock;
+            }
+        }
+
         extraction.links = Array.isArray(extraction.links) ? extraction.links.slice(0, 50) : [];
         extraction.images = Array.isArray(extraction.images) ? extraction.images.slice(0, 30) : [];
 
@@ -2299,17 +2953,23 @@ async function runPlaywrightExtractionTool(args = {}) {
         const truncated = (html || '').length > MAX_HTML_LENGTH;
         const trimmedHtml = truncated ? `${html.slice(0, MAX_HTML_LENGTH)}<!-- Truncated -->` : html;
 
+        const options = {
+            include_images: includeImages,
+            include_links: includeLinks,
+            include_metadata: includeMetadata,
+            clean_content: cleanContent,
+            block_media: blockMedia
+        };
+        if (derivedFromQuery) {
+            options.search_provider = searchProvider.key;
+        }
+
         const payload = {
             success: true,
             url: targetUrl,
             fetched_at: extraction.timestamp,
             wait_time: waitTime,
-            options: {
-                include_images: includeImages,
-                include_links: includeLinks,
-                include_metadata: includeMetadata,
-                clean_content: cleanContent
-            },
+            options,
             html: trimmedHtml,
             html_truncated: truncated,
             html_length: (html || '').length,
@@ -2319,16 +2979,31 @@ async function runPlaywrightExtractionTool(args = {}) {
             structure: extraction.structure,
             links: extraction.links,
             images: extraction.images,
-            extraction_method: extraction.extractionMethod
+            extraction_method: extraction.extractionMethod,
+            cached: Boolean(cached)
         };
 
-        const display = `Rendered ${truncateText(targetUrl, 60)} (${(html || '').length.toLocaleString()} chars)`;
+        payload.force_refreshed = Boolean(forcedRefresh);
+
+        if (derivedFromQuery) {
+            payload.search_query = queryInput;
+            payload.search_provider = searchProvider.key;
+        }
+
+        const statusLabel = forcedRefresh ? 'Refreshed' : cached ? 'Cached' : 'Rendered';
+        const display = derivedFromQuery
+            ? `${statusLabel} ${searchProvider.label} for “${truncateText(queryInput, 60)}” (${(html || '').length.toLocaleString()} chars)`
+            : `${statusLabel} ${truncateText(targetUrl, 60)} (${(html || '').length.toLocaleString()} chars)`;
 
         return {
             name: 'render_with_playwright',
             content: JSON.stringify(payload),
             display,
-            arguments: parsed
+            arguments: parsed,
+            cached: Boolean(cached),
+            forceRefreshed: Boolean(forcedRefresh),
+            searchQuery: derivedFromQuery ? queryInput : undefined,
+            searchProvider: derivedFromQuery ? searchProvider.key : undefined
         };
     } catch (error) {
         console.error('Playwright tool execution failed:', error);
@@ -2337,6 +3012,12 @@ async function runPlaywrightExtractionTool(args = {}) {
             url: targetUrl,
             receivedArguments: parsed
         };
+        if (queryInput) {
+            payload.search_query = queryInput;
+        }
+        if (derivedFromQuery) {
+            payload.search_provider = searchProvider.key;
+        }
         return {
             name: 'render_with_playwright',
             content: JSON.stringify(payload),
@@ -2360,6 +3041,84 @@ function parseToolArguments(rawArgs) {
         console.warn('Unable to parse tool arguments:', rawArgs, error);
         return { _parse_error: 'Invalid JSON arguments', raw: String(rawArgs) };
     }
+}
+
+function stableStringify(value) {
+    if (value === undefined) {
+        return 'undefined';
+    }
+    if (value === null || typeof value !== 'object') {
+        return JSON.stringify(value);
+    }
+    if (Array.isArray(value)) {
+        return `[${value.map(item => stableStringify(item)).join(',')}]`;
+    }
+    const keys = Object.keys(value).sort();
+    const parts = keys.map(key => `${JSON.stringify(key)}:${stableStringify(value[key])}`);
+    return `{${parts.join(',')}}`;
+}
+
+function buildToolSignature(toolCall) {
+    const name = toolCall?.function?.name || toolCall?.name || 'unknown_tool';
+    let parsedArgs = {};
+    try {
+        parsedArgs = parseToolArguments(toolCall?.function?.arguments ?? toolCall?.arguments ?? {});
+    } catch (error) {
+        console.warn('Unable to normalise tool arguments for signature generation:', error);
+    }
+    return `${name}::${stableStringify(parsedArgs)}`;
+}
+
+function canonicalizeHostname(hostname) {
+    if (!hostname) {
+        return '';
+    }
+    const normalized = hostname.toLowerCase();
+    const stripped = normalized.replace(/^www\./, '');
+    return PLAYWRIGHT_HOST_CANONICAL_MAP[stripped] || stripped;
+}
+
+function getHostname(value) {
+    try {
+        const parsed = new URL(String(value));
+        return canonicalizeHostname(parsed.hostname);
+    } catch {
+        return '';
+    }
+}
+
+function getPrimaryExtractionHostname() {
+    if (extractedData?.url) {
+        const host = getHostname(extractedData.url);
+        if (host) {
+            return host;
+        }
+    }
+    const lastRecord = extractionHistory.length ? extractionHistory[extractionHistory.length - 1] : null;
+    if (lastRecord?.url) {
+        const host = getHostname(lastRecord.url);
+        if (host) {
+            return host;
+        }
+    }
+    return '';
+}
+
+function getSearchProviderConfig(providerKey) {
+    const normalized = (providerKey || '').toString().trim().toLowerCase();
+    return PLAYWRIGHT_SEARCH_PROVIDERS[normalized] || PLAYWRIGHT_SEARCH_PROVIDERS[PLAYWRIGHT_DEFAULT_SEARCH_PROVIDER];
+}
+
+function buildSearchProviderUrl(query, providerKey = PLAYWRIGHT_DEFAULT_SEARCH_PROVIDER) {
+    const provider = getSearchProviderConfig(providerKey);
+    return provider.buildUrl(query || '');
+}
+
+function isAllowedSecondaryHost(hostname) {
+    if (!hostname) {
+        return false;
+    }
+    return PLAYWRIGHT_ALLOWED_SECONDARY_HOSTS.has(hostname);
 }
 
 function runGetCurrentTimeTool(args = {}) {
@@ -2506,8 +3265,8 @@ function renderInstructionDecision(decisionData) {
     const actionButtons = [];
     decisionData.searchQueries.forEach(query => {
         actionButtons.push(`
-            <button type="button" class="assistant-search-button" data-search-query="${escapeAttribute(query)}">
-                🔍 Search “${escapeHtml(truncateText(query, 60))}”
+            <button type="button" class="assistant-search-button" data-search-query="${escapeAttribute(query)}" data-search-provider="google">
+                🔍 Google “${escapeHtml(truncateText(query, 60))}”
             </button>
         `);
     });
@@ -2521,6 +3280,9 @@ function renderInstructionDecision(decisionData) {
 
     if (actionButtons.length) {
         parts.push(`<div class="assistant-search-actions">${actionButtons.join('')}</div>`);
+        if (decisionData.searchQueries.length) {
+            parts.push('<p class="assistant-search-note">Search buttons use Google by default. Ask for another provider if you prefer a different engine.</p>');
+        }
     } else {
         parts.push('<p>No actionable search queries were provided.</p>');
     }
@@ -2810,23 +3572,37 @@ function scrollConversationToEnd() {
 }
 
 (function restorePlaywrightServerSetting() {
-    const input = document.getElementById('playwrightServer');
-    if (!input) return;
+    playwrightServerInput = document.getElementById('playwrightServer');
+    if (!playwrightServerInput) return;
+    if (!playwrightServerInput.dataset.defaultPlaceholder) {
+        playwrightServerInput.dataset.defaultPlaceholder = playwrightServerInput.getAttribute('placeholder') || 'http://localhost:3050';
+    }
     try {
         const saved = localStorage.getItem(PLAYWRIGHT_STORAGE_KEY);
         if (saved) {
-            input.value = saved;
+            playwrightServerInput.value = saved;
         }
     } catch (storageError) {
         console.warn('Unable to access localStorage for Playwright server URL:', storageError);
     }
-    input.addEventListener('change', () => {
+    playwrightServerInput.addEventListener('change', () => {
         try {
-            localStorage.setItem(PLAYWRIGHT_STORAGE_KEY, input.value.trim());
+            localStorage.setItem(PLAYWRIGHT_STORAGE_KEY, playwrightServerInput.value.trim());
         } catch (storageError) {
             console.warn('Unable to persist Playwright server URL:', storageError);
         }
+        playwrightRenderCache.clear();
     });
+})();
+initializePlaywrightMode();
+
+(function watchPlaywrightOptionChanges() {
+    const blockToggle = document.getElementById('blockMedia');
+    if (blockToggle) {
+        blockToggle.addEventListener('change', () => {
+            playwrightRenderCache.clear();
+        });
+    }
 })();
 
 (function restoreOllamaSettings() {
@@ -3113,6 +3889,7 @@ async function handleInstructionWithoutUrl(instruction, messageEl) {
         '  "suggested_urls": ["Optional direct URLs to visit."]',
         '}',
         'When decision == "answer", include a concise, current answer in the "answer" field.',
+        'When recommending searches, favour queries that can be executed on Google Search (https://www.google.com) unless the user explicitly requests another provider.',
         'When decision == "search", provide at least one search query or URL in the appropriate arrays.',
         'Use standard Markdown in strings; avoid placeholder tokens like @@ or XML.'
     ].join('\n');
@@ -3196,11 +3973,11 @@ ${instruction}`;
     }
 }
 
-function buildSearchUrl(query) {
+function buildSearchUrl(query, providerKey = PLAYWRIGHT_DEFAULT_SEARCH_PROVIDER) {
     if (!query) {
         return '';
     }
-    return `https://duckduckgo.com/?q=${encodeURIComponent(query.trim())}`;
+    return buildSearchProviderUrl(query, providerKey);
 }
 
 async function executeSearchRecommendation(button) {
@@ -3210,7 +3987,9 @@ async function executeSearchRecommendation(button) {
 
     const query = (button.dataset.searchQuery || '').trim();
     const directUrl = (button.dataset.searchUrl || '').trim();
-    const targetUrl = directUrl || buildSearchUrl(query);
+    const providerKey = (button.dataset.searchProvider || PLAYWRIGHT_DEFAULT_SEARCH_PROVIDER).toLowerCase();
+    const provider = getSearchProviderConfig(providerKey);
+    const targetUrl = directUrl || buildSearchProviderUrl(query, providerKey);
 
     if (!targetUrl) {
         showWarning('No search target available for this action.');
@@ -3219,17 +3998,17 @@ async function executeSearchRecommendation(button) {
 
     const instruction = directUrl
         ? `Fetch latest information from ${directUrl}`
-        : `Search the web for "${query}" and summarise the findings.`;
+        : `Search the web for "${query}" using ${provider.label} and summarise the findings.`;
 
     button.disabled = true;
 
     hideMessages();
     showProgress();
-    setProgress(0, directUrl ? 'Preparing to fetch page...' : 'Preparing web search...');
+    setProgress(0, directUrl ? 'Preparing to fetch page...' : `Preparing ${provider.label}...`);
 
-    const assistantMessage = appendConversationMessage('assistant', renderAssistantLoading(directUrl ? 'Fetching page content...' : 'Searching the web...'));
+    const assistantMessage = appendConversationMessage('assistant', renderAssistantLoading(directUrl ? 'Fetching page content...' : `Searching via ${provider.label}...`));
 
-    setLlmStatus('info', directUrl ? 'Fetching suggested URL...' : 'Running suggested search...');
+    setLlmStatus('info', directUrl ? 'Fetching suggested URL...' : `Running ${provider.label}...`);
 
     extractedData = null;
     updateLlmSendAvailability();
@@ -3273,11 +4052,66 @@ async function extractContent(url) {
     setProgress(25, 'Launching Playwright browser...');
 
     try {
-        const html = await extractWithPlaywright(url);
+        const renderResult = await extractWithPlaywright(url);
+        const html = renderResult?.html || '';
         if (html && html.length > 0) {
             const doc = parser.parseFromString(html, 'text/html');
             setProgress(70, 'Processing content...');
-            return processExtractedContent(url, doc, 'playwright');
+            const content = await processExtractedContent(url, doc, 'playwright');
+            const remoteMetadata = renderResult?.metadata;
+            if (remoteMetadata && typeof remoteMetadata === 'object') {
+                const mergedMetadata = { ...(content.metadata || {}) };
+                Object.entries(remoteMetadata).forEach(([key, value]) => {
+                    if (value === null || value === undefined || value === '') {
+                        return;
+                    }
+                    if (typeof value === 'object' && !Array.isArray(value)) {
+                        mergedMetadata[key] = {
+                            ...(value || {}),
+                            ...(mergedMetadata[key] || {})
+                        };
+                    } else if (!mergedMetadata[key]) {
+                        mergedMetadata[key] = value;
+                    }
+                });
+                mergedMetadata.playwright = {
+                    ...(mergedMetadata.playwright || {}),
+                    ...remoteMetadata
+                };
+                content.metadata = mergedMetadata;
+
+                const metadataSummaryLines = [];
+                if (remoteMetadata.title) {
+                    metadataSummaryLines.push(`Title: ${remoteMetadata.title}`);
+                }
+                if (remoteMetadata.channel) {
+                    metadataSummaryLines.push(`Channel: ${remoteMetadata.channel}`);
+                }
+                if (remoteMetadata.published) {
+                    metadataSummaryLines.push(`Published: ${remoteMetadata.published}`);
+                }
+                if (remoteMetadata.viewCount) {
+                    metadataSummaryLines.push(`Views: ${remoteMetadata.viewCount}`);
+                }
+                if (remoteMetadata.duration) {
+                    metadataSummaryLines.push(`Duration: ${remoteMetadata.duration}`);
+                }
+                if (remoteMetadata.keywords) {
+                    metadataSummaryLines.push(`Keywords: ${remoteMetadata.keywords}`);
+                }
+                if (remoteMetadata.description) {
+                    metadataSummaryLines.push('');
+                    metadataSummaryLines.push(remoteMetadata.description);
+                }
+                const metadataSummary = metadataSummaryLines.join('\n').trim();
+                if (metadataSummary && !/Playwright Captured Video Summary:/i.test(content.content || '')) {
+                    const injectedBlock = `Playwright Captured Video Summary:\n${metadataSummary}`;
+                    content.content = content.content
+                        ? `${injectedBlock}\n\n${content.content}`
+                        : injectedBlock;
+                }
+            }
+            return content;
         }
     } catch (error) {
         console.warn('Playwright extraction failed:', error);
@@ -3290,7 +4124,7 @@ async function extractContent(url) {
         if (html) {
             const doc = parser.parseFromString(html, 'text/html');
             setProgress(70, 'Processing content...');
-            return processExtractedContent(url, doc, 'direct');
+            return await processExtractedContent(url, doc, 'direct');
         }
     } catch (error) {
         console.warn('Static extraction failed:', error);
@@ -3348,6 +4182,9 @@ async function chatWithOllama(options) {
 
     const conversation = messages.map(message => ({ ...message }));
     const toolExecutions = [];
+    const toolCallTracker = new Map();
+    let lastAssistantContent = '';
+    let allowToolCalls = enableTools;
 
     for (let iteration = 0; iteration < Math.max(1, maxIterations); iteration += 1) {
         if (typeof onIteration === 'function') {
@@ -3364,9 +4201,11 @@ async function chatWithOllama(options) {
             stream: false
         };
 
-        if (enableTools) {
+        if (allowToolCalls) {
             body.tools = OLLAMA_DEFAULT_TOOLS;
             body.tool_choice = 'auto';
+        } else if (enableTools) {
+            body.tool_choice = 'none';
         }
 
         const response = await fetch(`${baseUrl}/api/chat`, {
@@ -3395,6 +4234,11 @@ async function chatWithOllama(options) {
             };
         }
 
+        const messageContent = extractOllamaMessageContent(message);
+        if (messageContent) {
+            lastAssistantContent = messageContent;
+        }
+
         const toolCalls = enableTools ? (message.tool_calls || message.toolCalls || []) : [];
         const hasToolCalls = Array.isArray(toolCalls) && toolCalls.length > 0;
 
@@ -3405,7 +4249,30 @@ async function chatWithOllama(options) {
                 tool_calls: toolCalls
             };
             conversation.push(assistantMsg);
+            let successfulPlaywrightCall = false;
             for (const toolCall of toolCalls) {
+                const signature = buildToolSignature(toolCall);
+                const priorCount = toolCallTracker.get(signature) || 0;
+                let previousExecution = null;
+                if (priorCount > 0) {
+                    previousExecution = [...toolExecutions].reverse().find(exec => exec._signature === signature && !exec.error);
+                    if (previousExecution) {
+                        console.warn(`Detected repeated tool call for signature ${signature}, aborting loop.`);
+                        const fallbackContent = buildToolFallbackContent(
+                            previousExecution,
+                            'Tool loop stopped after repeated tool calls. Showing the most recent captured result instead.'
+                        ) || previousExecution.display || previousExecution.content || '';
+                        return {
+                            result,
+                            toolExecutions,
+                            finalContent: fallbackContent,
+                            toolLoopFallback: true,
+                            toolLoopReason: 'duplicate_tool_call'
+                        };
+                    }
+                }
+
+                const toolDecisionMessage = announceToolDecision(toolCall);
                 if (typeof onToolCall === 'function') {
                     try {
                         onToolCall(toolCall);
@@ -3413,11 +4280,30 @@ async function chatWithOllama(options) {
                         console.warn('chatWithOllama tool callback failed:', callbackError);
                     }
                 }
-                const execution = await executeOllamaToolCall(toolCall);
-                toolExecutions.push({
+                let execution;
+                try {
+                    execution = await executeOllamaToolCall(toolCall);
+                } catch (executionError) {
+                    updateToolDecisionMessage(toolDecisionMessage, toolCall, null, executionError);
+                    throw executionError;
+                }
+                const callId = toolCall?.id || `${execution.name || 'tool'}-${Date.now()}`;
+                const executionRecord = {
                     ...execution,
-                    callId: toolCall?.id || `${execution.name || 'tool'}-${Date.now()}`
-                });
+                    callId,
+                    _signature: signature
+                };
+                toolExecutions.push(executionRecord);
+                toolCallTracker.set(signature, priorCount + 1);
+                updateToolDecisionMessage(
+                    toolDecisionMessage,
+                    toolCall,
+                    executionRecord,
+                    executionRecord.error ? executionRecord.display || executionRecord.content || 'Tool execution failed.' : null
+                );
+                if (!executionRecord.error && executionRecord.name === 'render_with_playwright') {
+                    successfulPlaywrightCall = true;
+                }
                 const toolMessage = {
                     role: 'tool',
                     content: execution.content,
@@ -3427,6 +4313,16 @@ async function chatWithOllama(options) {
                     toolMessage.tool_call_id = toolCall.id;
                 }
                 conversation.push(toolMessage);
+                if (executionRecord.error) {
+                    return {
+                        result,
+                        toolExecutions,
+                        toolError: executionRecord.display || executionRecord.content || 'Tool execution failed.'
+                    };
+                }
+            }
+            if (successfulPlaywrightCall) {
+                allowToolCalls = false;
             }
             continue;
         }
@@ -3437,6 +4333,31 @@ async function chatWithOllama(options) {
             message,
             finalContent: content,
             toolExecutions
+        };
+    }
+
+    if (lastAssistantContent) {
+        return {
+            result: null,
+            message: null,
+            finalContent: lastAssistantContent,
+            toolExecutions,
+            toolLoopFallback: true
+        };
+    }
+
+    const fallbackExecution = [...toolExecutions].reverse().find(exec => !exec.error) || null;
+    if (fallbackExecution) {
+        const fallbackContent = buildToolFallbackContent(
+            fallbackExecution,
+            'Tool loop stopped after repeated tool calls. Returning the most recent tool output.'
+        ) || fallbackExecution.display || fallbackExecution.content || '';
+        return {
+            result: null,
+            message: null,
+            finalContent: fallbackContent,
+            toolExecutions,
+            toolLoopFallback: true
         };
     }
 
@@ -3476,9 +4397,11 @@ async function generateInstructionAnswer(instruction, messageEl, decisionData) {
         'You are an assistant embedded in a web content extraction tool.',
         'You have access to these callable tools:',
         '- get_current_time(format: "iso" | "locale"): Returns the current system time and timezone.',
-        '- render_with_playwright(url, wait_time?, include_images?, include_links?, include_metadata?, clean_content?): Renders a URL with the Playwright helper to capture dynamic HTML.',
+        `- render_with_playwright(url?, query?, search_provider?, wait_time?, include_images?, include_links?, include_metadata?, clean_content?): Renders live web pages or search results with the Playwright helper.`,
         'Always call get_current_time when you need exact or fresh date/time information.',
-        'Call render_with_playwright when a page depends on JavaScript for its content.',
+        'Call render_with_playwright whenever the user supplies a URL or asks you to browse a specific page before answering.',
+        'When the user requests a web search or needs latest information, call render_with_playwright using the "query" field (default to the Google search provider unless the user states otherwise; you may offer alternatives via "search_provider").',
+        'Use the returned HTML/metadata instead of guessing, and prefer refreshing the same origin rather than proxy mirrors.',
         'Follow the formatting guidance exactly:',
         LLM_RESPONSE_FORMAT_HINT
     ].join('\n');
@@ -3497,7 +4420,7 @@ async function generateInstructionAnswer(instruction, messageEl, decisionData) {
                 model: modelSelect.value,
                 messages,
                 enableTools: true,
-                maxIterations: 4,
+                maxIterations: 6,
                 onIteration: iteration => {
                     const status = iteration === 0 ? `Sending request to ${baseUrl}...` : 'Processing tool results...';
                     updateLlmProgress(45 + iteration * 12, status);
@@ -3517,8 +4440,8 @@ async function generateInstructionAnswer(instruction, messageEl, decisionData) {
                     baseUrl,
                     model: modelSelect.value,
                     messages,
-                    enableTools: false,
-                    maxIterations: 1,
+                enableTools: false,
+                maxIterations: 2,
                     onIteration: iteration => {
                         const status = iteration === 0 ? `Sending request to ${baseUrl}...` : 'Waiting for response...';
                         updateLlmProgress(45 + iteration * 15, status);
@@ -3531,6 +4454,15 @@ async function generateInstructionAnswer(instruction, messageEl, decisionData) {
 
         const finalContent = chatResult?.finalContent || decisionData?.answer || '(No response text received.)';
         const toolExecutions = chatResult?.toolExecutions || [];
+        if (chatResult?.toolError) {
+            const errorHtml = `<div class="assistant-error">${escapeHtml(chatResult.toolError)}</div>${reasonHtml}`;
+            updateConversationMessage(
+                messageEl,
+                renderAssistantResponse(errorHtml, null)
+            );
+            setLlmStatus('error', chatResult.toolError);
+            return;
+        }
         updateLlmProgress(100, 'LLM response received.');
 
         let llmHtml = renderLlmOutput(finalContent);
@@ -3546,7 +4478,9 @@ async function generateInstructionAnswer(instruction, messageEl, decisionData) {
             renderAssistantResponse(llmHtml, null)
         );
 
-        if (toolExecutions.length > 0) {
+        if (chatResult?.toolLoopFallback) {
+            setLlmStatus('warning', `Response generated with ${modelSelect.value}. Tool loop stopped early after repeated calls.`);
+        } else if (toolExecutions.length > 0) {
             const summary = toolExecutions.map(exec => exec.name || 'tool').join(', ');
             setLlmStatus('success', `Response generated with ${modelSelect.value}. Tools used: ${summary}.`);
         } else if (usedTools) {
@@ -3652,8 +4586,10 @@ ${LLM_RESPONSE_FORMAT_HINT}`;
             content: [
                 'You are an assistant embedded in a web content extraction tool.',
                 'Use any provided tools when they help you answer accurately.',
-                'Available tools: get_current_time (returns the current system time) and render_with_playwright (renders a URL with the Playwright helper for JavaScript-heavy pages).',
-                'Call render_with_playwright when static fetching is insufficient or the page relies on JavaScript for content.',
+                'Available tools: get_current_time (returns the current system time) and render_with_playwright (renders live web pages or search results with the Playwright helper).',
+                'Whenever the user references a URL from the extracted data, call render_with_playwright on that URL before answering.',
+                'When the user asks to browse, search, or gather up-to-date information, call render_with_playwright using the "query" argument (default to the Google search provider unless a different one is specified; offer options when helpful).',
+                'Prefer re-rendering the same origin with Playwright instead of redirecting to mirrors or cached proxies.',
                 'Follow the formatting guidance exactly:',
                 LLM_RESPONSE_FORMAT_HINT
             ].join(' ')
@@ -3673,7 +4609,7 @@ ${LLM_RESPONSE_FORMAT_HINT}`;
                 model: modelSelect.value,
                 messages: chatMessages,
                 enableTools: true,
-                maxIterations: 4,
+                maxIterations: 6,
                 onIteration: iteration => {
                     const status = iteration === 0 ? `Sending request to ${baseUrl}...` : 'Processing tool results...';
                     updateLlmProgress(45 + iteration * 12, status);
@@ -3693,8 +4629,8 @@ ${LLM_RESPONSE_FORMAT_HINT}`;
                     baseUrl,
                     model: modelSelect.value,
                     messages: chatMessages,
-                    enableTools: false,
-                    maxIterations: 1,
+                enableTools: false,
+                maxIterations: 2,
                     onIteration: iteration => {
                         const status = iteration === 0 ? `Sending request to ${baseUrl}...` : 'Waiting for response...';
                         updateLlmProgress(45 + iteration * 15, status);
@@ -3707,6 +4643,15 @@ ${LLM_RESPONSE_FORMAT_HINT}`;
 
         const finalContent = chatResult?.finalContent || '(No response text received.)';
         const toolExecutions = chatResult?.toolExecutions || [];
+        if (chatResult?.toolError) {
+            const errorHtml = `<div class="assistant-error">${escapeHtml(chatResult.toolError)}</div>`;
+            updateConversationMessage(
+                assistantMessage,
+                renderAssistantResponse(errorHtml, currentExtraction, extractionIndex)
+            );
+            setLlmStatus('error', chatResult.toolError);
+            return;
+        }
         updateLlmProgress(100, 'LLM response received.');
 
         let llmHtml = renderLlmOutput(finalContent);
@@ -3719,7 +4664,9 @@ ${LLM_RESPONSE_FORMAT_HINT}`;
             renderAssistantResponse(llmHtml, currentExtraction, extractionIndex)
         );
 
-        if (toolExecutions.length > 0) {
+        if (chatResult?.toolLoopFallback) {
+            setLlmStatus('warning', `Response generated with ${modelSelect.value}. Tool loop stopped early after repeated calls.`);
+        } else if (toolExecutions.length > 0) {
             const summary = toolExecutions.map(exec => exec.name || 'tool').join(', ');
             setLlmStatus('success', `Response generated with ${modelSelect.value}. Tools used: ${summary}.`);
         } else if (usedTools) {
@@ -4384,8 +5331,11 @@ async function tryMultipleExtractionMethods(url) {
             });
         }
 
-        function getPlaywrightEndpoint() {
-            const input = document.getElementById('playwrightServer');
+        function getPlaywrightEndpoint(mode = playwrightHelperMode) {
+            if (mode === 'embedded') {
+                return getEmbeddedPlaywrightEndpoint();
+            }
+            const input = playwrightServerInput || document.getElementById('playwrightServer');
             let baseUrl = (input?.value || '').trim();
             if (!baseUrl) {
                 baseUrl = 'http://localhost:3050';
@@ -4407,9 +5357,9 @@ async function tryMultipleExtractionMethods(url) {
         async function extractWithPlaywright(url) {
             try {
                 setProgress(35, 'Starting Playwright browser...');
-                const { html } = await requestPlaywrightHtml(url);
+                const payload = await requestPlaywrightHtml(url);
                 setProgress(65, 'Browser extraction successful...');
-                return html;
+                return payload;
             } catch (error) {
                 if (error?.code === 'PLAYWRIGHT_HELPER_UNREACHABLE') {
                     throw error;
@@ -4423,73 +5373,84 @@ async function tryMultipleExtractionMethods(url) {
         }
 
         function showPlaywrightInstructions(detailsMessage) {
-            const endpoint = (() => {
-                try {
-                    return getPlaywrightEndpoint();
-                } catch {
-                    return 'http://localhost:3050/extract-with-playwright';
-                }
-            })();
-            const baseForInput = endpoint.replace(/\/extract-with-playwright$/, '');
+            const mode = playwrightHelperMode || 'embedded';
+            const warningElement = document.getElementById('warningMessage');
 
-            const serverSnippet = `
-const { chromium } = require('playwright');
+            const renderWarning = (html) => {
+                warningElement.innerHTML = detailsMessage ? `<p>${detailsMessage}</p>${html}` : html;
+                warningElement.style.display = 'block';
+                warningElement.style.maxHeight = '400px';
+                warningElement.style.overflow = 'auto';
+            };
+
+            if (mode === 'embedded') {
+                const endpoint = getEmbeddedPlaywrightEndpoint();
+                const embeddedSnippet = `const { chromium } = require('playwright');
 const express = require('express');
 const app = express();
 
-// Allow browser UI fetches from file:// origins
-app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type');
-    if (req.method === 'OPTIONS') {
-        return res.sendStatus(200);
+const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+const VIEWPORT = { width: 1365, height: 768 };
+const LOCALE = 'en-US';
+const TIMEZONE = 'America/Los_Angeles';
+const ACCEPT_LANGUAGE = 'en-US,en;q=0.9';
+const SEC_CH_UA = '"Chromium";v="124", "Google Chrome";v="124", "Not:A-Brand";v="99"';
+const SEC_CH_UA_PLATFORM = '"Windows"';
+
+let browser;
+async function ensureBrowser() {
+    if (!browser) {
+        browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
     }
-    next();
-});
+    return browser;
+}
 
-app.use(express.json());
-
-app.post('/extract-with-playwright', async (req, res) => {
+function buildHeaders(targetUrl) {
+    const headers = {
+        'Accept-Language': ACCEPT_LANGUAGE,
+        'Sec-CH-UA': SEC_CH_UA,
+        'Sec-CH-UA-Mobile': '?0',
+        'Sec-CH-UA-Platform': SEC_CH_UA_PLATFORM
+    };
     try {
-        const { url, waitTime } = req.body;
-        const effectiveWait = Number.isFinite(waitTime) ? waitTime : 3000;
-        const navigationTimeout = Math.max(effectiveWait + 10000, 45000);
-        
-        const browser = await chromium.launch({
-            headless: true,
-            args: ['--no-sandbox', '--disable-setuid-sandbox']
-        });
+        const parsed = new URL(targetUrl);
+        headers.Referer = \`\${parsed.origin}/\`;
+    } catch (error) {}
+    return headers;
+}
+
+app.use(express.json({ limit: '2mb' }));
+
+app.post('/api/playwright/extract', async (req, res) => {
+    const { url, waitTime = 800, options = {} } = req.body || {};
+    if (!url) return res.json({ success: false, error: 'Missing url' });
+    try {
+        const browser = await ensureBrowser();
         const context = await browser.newContext({
-            userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            userAgent: USER_AGENT,
+            viewport: VIEWPORT,
+            locale: LOCALE,
+            timezoneId: TIMEZONE
         });
-        const page = await context.newPage();
-        page.setDefaultNavigationTimeout(navigationTimeout);
-        
-        console.log(\`Navigating to: \${url}\`);
-        try {
-            await page.goto(url, { waitUntil: 'domcontentloaded', timeout: navigationTimeout });
-        } catch (navError) {
-            if (navError.name === 'TimeoutError') {
-                console.warn('Navigation timed out waiting for DOMContentLoaded:', navError.message);
-            } else {
-                throw navError;
+        await context.addInitScript(() => {
+            Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+            if (!window.chrome) {
+                window.chrome = { runtime: {} };
             }
+        });
+        await context.setExtraHTTPHeaders(buildHeaders(url));
+        const page = await context.newPage();
+        if (options.blockMedia) {
+            await page.route('**/*.{png,jpg,jpeg,gif,svg,webp,mp4,mp3,woff,woff2}', route => route.abort());
+            await page.route('**/*.{css,map}', route => route.abort());
         }
-        
-        try {
-            await page.waitForLoadState('networkidle', { timeout: Math.min(navigationTimeout, 15000) });
-        } catch (idleError) {
-            console.warn('Network idle state not reached within timeout, continuing extraction.');
+        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+        if (options.fastSelector) {
+            await page.waitForSelector(options.fastSelector, { timeout: 1500 }).catch(() => {});
         }
-        
-        console.log(\`Waiting \${effectiveWait}ms for dynamic content...\`);
-        await page.waitForTimeout(effectiveWait);
-        
+        await page.waitForTimeout(Math.max(200, Math.min(waitTime, 1200)));
         const html = await page.content();
         await context.close();
-        await browser.close();
-        
         res.json({ success: true, html });
     } catch (error) {
         console.error('Playwright error:', error);
@@ -4499,54 +5460,128 @@ app.post('/extract-with-playwright', async (req, res) => {
 
 const PORT = process.env.PORT || 3050;
 app.listen(PORT, () => {
-    console.log(\`🚀 Playwright extraction server running on port \${PORT}\`);
-    console.log('Ready to extract JavaScript-heavy content!');
-});`.trim();
+    console.log('⚡ Embedded Playwright helper listening on ' + PORT);
+});`;
+
+                const instructions = `
+                    <h3>⚡ Embedded Playwright Helper Required</h3>
+                    <p>The fast embedded mode keeps a Chromium instance warm inside this app for near-instant renders.</p>
+                    <h4>Step 1: Install dependencies</h4>
+                    <pre><code>npm install playwright express</code></pre>
+                    <h4>Step 2: Create <code>embedded-helper.js</code></h4>
+                    <pre><code>${embeddedSnippet}</code></pre>
+                    <h4>Step 3: Start the helper</h4>
+                    <pre><code>node embedded-helper.js</code></pre>
+                    <h4>Step 4: Try again</h4>
+                    <p>The UI will call <code>${endpoint}</code>. Because the browser stays alive and heavy assets are blocked, repeat renders typically finish in under a second.</p>
+                `;
+                renderWarning(instructions);
+                return;
+            }
+
+            const endpoint = (() => {
+                try {
+                    return getPlaywrightEndpoint('container');
+                } catch {
+                    return 'http://localhost:3050/extract-with-playwright';
+                }
+            })();
+            const baseForInput = endpoint.replace(/\/extract-with-playwright$/, '');
+
+            const serverSnippet = `const { chromium } = require('playwright');
+const express = require('express');
+const app = express();
+
+const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+const VIEWPORT = { width: 1365, height: 768 };
+const LOCALE = 'en-US';
+const TIMEZONE = 'America/Los_Angeles';
+const ACCEPT_LANGUAGE = 'en-US,en;q=0.9';
+const SEC_CH_UA = '"Chromium";v="124", "Google Chrome";v="124", "Not:A-Brand";v="99"';
+const SEC_CH_UA_PLATFORM = '"Windows"';
+
+let browser;
+async function ensureBrowser() {
+    if (!browser) {
+        browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+    }
+    return browser;
+}
+
+function buildHeaders(targetUrl) {
+    const headers = {
+        'Accept-Language': ACCEPT_LANGUAGE,
+        'Sec-CH-UA': SEC_CH_UA,
+        'Sec-CH-UA-Mobile': '?0',
+        'Sec-CH-UA-Platform': SEC_CH_UA_PLATFORM
+    };
+    try {
+        const parsed = new URL(targetUrl);
+        headers.Referer = \`\${parsed.origin}/\`;
+    } catch (error) {}
+    return headers;
+}
+
+app.use(express.json({ limit: '2mb' }));
+
+app.post('/extract-with-playwright', async (req, res) => {
+    const { url, waitTime = 1500, options = {} } = req.body || {};
+    if (!url) return res.json({ success: false, error: 'Missing url' });
+    try {
+        const browser = await ensureBrowser();
+        const context = await browser.newContext({
+            userAgent: USER_AGENT,
+            viewport: VIEWPORT,
+            locale: LOCALE,
+            timezoneId: TIMEZONE
+        });
+        await context.addInitScript(() => {
+            Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+            if (!window.chrome) {
+                window.chrome = { runtime: {} };
+            }
+        });
+        await context.setExtraHTTPHeaders(buildHeaders(url));
+        const page = await context.newPage();
+        if (options.blockMedia) {
+            await page.route('**/*.{png,jpg,jpeg,gif,svg,webp,mp4,mp3,woff,woff2}', route => route.abort());
+            await page.route('**/*.{css,map}', route => route.abort());
+        }
+        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+        await page.waitForTimeout(Math.max(350, Math.min(waitTime, 2000)));
+        const html = await page.content();
+        await context.close();
+        res.json({ success: true, html });
+    } catch (error) {
+        console.error('Playwright error:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
+
+const PORT = process.env.PORT || 3050;
+app.listen(PORT, () => {
+    console.log('🚀 Playwright extraction server running on port ' + PORT);
+    console.log('Browser kept warm for near-instant renders.');
+});`;
 
             const instructions = `
-                <h3>🚀 Playwright Browser Setup Required</h3>
-                <p>To extract content from JavaScript-heavy pages, you need to run a Playwright server:</p>
-                
-                <h4>Step 1: Install Dependencies</h4>
+                <h3>🚀 Playwright Helper Required</h3>
+                <p>Run the helper in Docker or on another host. It keeps a Chromium browser warm, blocks heavy resources, and honours short wait times.</p>
+                <h4>Step 1: Install dependencies</h4>
                 <pre><code>npm install playwright express</code></pre>
-                
-                <h4>Step 2: Create Server File</h4>
-                <p>Create a file named <code>extract-server.js</code>:</p>
+                <h4>Step 2: Create <code>extract-server.js</code></h4>
                 <pre><code>${serverSnippet}</code></pre>
-                
-                <h4>Step 3: Start Server</h4>
+                <h4>Step 3: Start the helper</h4>
                 <pre><code>node extract-server.js
-# starts on port 3050 by default.
-# choose a custom port if needed:
-PORT=4000 node extract-server.js</code></pre>
-
-                <h4>Step 3 (Docker alternative)</h4>
-                <p>Or build a container image and run it:</p>
-                <pre><code>docker build -t playwright-extractor -f docker/Dockerfile .</code></pre>
-                <pre><code>docker run --rm -p 3050:3050 playwright-extractor</code></pre>
-                
-                <h4>Step 4 (Docker Compose for UI + server)</h4>
-                <p>To run both the Playwright helper and this UI together:</p>
-                <pre><code>docker compose -f docker/docker-compose.yml up --build -d</code></pre>
-                <p>The UI will be served at <code>http://localhost:8080</code> and will reach the helper at <code>http://playwright-extractor:3050</code> inside the Docker network.</p>
-                
-                <h4>Step 5: Try Again</h4>
-                <p>Once the server is running, update the "Playwright Server URL" field if needed (current value: <code>${baseForInput}</code>) and try extracting again.</p>
-                
-                <p><strong>Note:</strong> The first time you run this, Playwright will download Chromium browsers automatically.</p>
+# or build & run the Docker helper
+# docker build -t playwright-extractor -f docker/Dockerfile .
+# docker run --rm -p 3050:3050 playwright-extractor</code></pre>
+                <h4>Step 4: Point this UI at the helper</h4>
+                <p>Set the Playwright Server URL to <code>${baseForInput}</code> (or your host) and retry the extraction.</p>
             `;
-            
-            const warningElement = document.getElementById('warningMessage');
-            warningElement.innerHTML = instructions;
-            warningElement.style.display = 'block';
-            warningElement.style.maxHeight = '400px';
-            warningElement.style.overflow = 'auto';
 
-            if (detailsMessage) {
-                warningElement.innerHTML = `<p>${detailsMessage}</p>` + warningElement.innerHTML;
-            }
+            renderWarning(instructions);
         }
-
         function extractMetadata(doc) {
             if (!document.getElementById('includeMetadata').checked) {
                 return {};

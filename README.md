@@ -4,15 +4,15 @@ Interactive tooling that turns any web page into LLM-ready context. The project 
 
 ## What’s Included
 
-- `web_content_extractor.html` — standalone browser UI with a chat-inspired workflow, extraction history, formatting helpers, and Ollama integration.
-- `extract-server.js` — Express server that keeps a warm Playwright browser ready for `/extract-with-playwright` requests.
+- `web_content_extractor.html` — standalone browser UI with a chat-inspired workflow, extraction history, formatting helpers, near-instant Playwright controls, and Ollama integration.
+- `extract-server.js` — Express server that keeps a warm Playwright browser ready for `/extract-with-playwright` and `/api/playwright/extract` requests.
 - `static/` — favicon assets referenced by the UI.
-- `docker/` — container builds for the UI and helper (with nginx front end and helper-only variants).
+- `docker/` — container builds for the UI and helper (with nginx front end, embedded helper proxy, and helper-only variants).
 - `package.json` / `package-lock.json` — Node metadata for the helper.
 
 ## Key Features
 
-- Handles modern pages: Playwright renders targets headlessly, waits for SPA hydration, and falls back to multiple text-only services if the helper is offline.
+- Handles modern pages: Playwright renders targets headlessly, waits for SPA hydration, blocks heavyweight assets, and falls back to multiple text-only services if the helper is offline.
 - Guided workflow: status bubbles, progress meters, and extraction history show exactly where each request is in the pipeline.
 - Rich content capture: configurable toggles for metadata, links, image alt text, dynamic content expansion, and post-processing cleanup.
 - LLM handoff: send extracted data to Ollama in Markdown or JSON format, track generation progress, and display responses inline with copy/export controls.
@@ -22,8 +22,8 @@ Interactive tooling that turns any web page into LLM-ready context. The project 
 ## How the Flow Works
 
 1. You enter an instruction that contains a URL and click **Run Task**.
-2. The UI calls the Playwright helper (`/extract-with-playwright`) with the target URL and wait time.
-3. The helper launches (or reuses) a headless Chromium instance, waits for DOMContentLoaded plus your configured delay, and returns the page HTML.
+2. The UI calls the Playwright helper (`/api/playwright/extract` in embedded mode or `/extract-with-playwright` in container mode) with the target URL and wait time.
+3. The helper launches (or reuses) a headless Chromium instance, blocks heavyweight assets, honours a tight wait window, and returns the page HTML (cache hits are served immediately).
 4. The UI parses and enriches the HTML (clean text, metadata, structure, links, images).
 5. If Playwright fails or is unreachable, the UI cascades through text-only fallbacks (AllOrigins proxy, r.jina.ai mirrors, Google Webcache) before surfacing an error.
 6. The extraction summary, raw data, and export controls are shown. If an Ollama model is selected, the UI automatically formats a prompt and sends it to your local LLM.
@@ -55,7 +55,7 @@ Click **Run Task** to launch the extraction. Watch the progress meter and conver
 
 ## Using the UI
 
-- **Extraction Options** — Expand the footer panel to toggle metadata/link/image inclusion, dynamic content expansion, content cleanup, wait time, and server endpoints.
+- **Extraction Options** — Expand the footer panel to toggle metadata/link/image inclusion, dynamic content expansion, content cleanup, wait time, Playwright helper mode (embedded or containerised), and server endpoints.
 - **Conversation Thread** — Each run adds a user/assistant pair. System cards surface progress, warnings, and success/failure states.
 - **Extraction Details Drawer** — Per result you can switch between formatted text, structured JSON, Markdown, and raw JSON tabs, with copy icons for each.
 - **Send to Ollama** — Choose Markdown or JSON payload format, select a model, and click **Send to Ollama** (automatically triggered after extraction when a model is already selected). The UI streams progress, handles errors, and keeps the status bubble pinned to the conversation tail.
@@ -77,8 +77,11 @@ Click **Run Task** to launch the extraction. Watch the progress meter and conver
 
 - Launches a persistent Chromium instance on first request (headless, `--no-sandbox` flags for container use) and reuses it for subsequent calls.
 - Warms the browser on startup by loading `about:blank` so the first extraction returns quickly.
-- Route: `POST /extract-with-playwright` with payload `{ url, waitTime }`. Wait time defaults to 3000 ms and feeds both the navigation timeout and post-load delay.
-- Returns `{ success: true, html }` or `{ success: false, error }`. Errors are logged server-side and mirrored in the UI.
+- Routes:
+  - `POST /extract-with-playwright` – canonical container endpoint.
+  - `POST /api/playwright/extract` – same-origin embedded endpoint (proxied by nginx in the Docker stack).
+- Payload: `{ url, waitTime, mode, options }`. Wait windows are automatically clamped for responsiveness (200–1200 ms embedded, 350–2000 ms container). Options enable cached responses, media blocking, and fast selectors.
+- Returns `{ success: true, html, cached }` or `{ success: false, error }`. Successful renders are cached in memory for two minutes to avoid redundant work.
 - Graceful shutdown on `SIGTERM`/`SIGINT` plus defensive cleanup on uncaught errors to avoid orphaned Chromium processes.
 
 ## Fallback Extraction Strategy
@@ -120,7 +123,7 @@ The compose file exposes the UI at `http://localhost:8080` and the helper at `ht
 
 ## Configuration & Persistence Notes
 
-- Helper honours `PORT` (default `3050`).
+- Helper honours `PORT` (default `3050`) plus optional `PLAYWRIGHT_CACHE_LIMIT` and `PLAYWRIGHT_CACHE_TTL_MS` for tuning in container setups.
 - UI uses `localStorage` keys:
   - `playwrightServerUrl`
   - `ollamaServerUrl`

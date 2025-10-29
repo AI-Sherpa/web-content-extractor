@@ -42,8 +42,9 @@ docker compose -f docker/docker-compose.yml logs -f   # optional: stream logs
 
 This exposes:
 
-- UI at `http://localhost:8080`
-- Playwright helper at `http://localhost:3050`
+- UI at `http://localhost:8080` (also `https://localhost:8443` with the bundled self-signed cert)
+- Embedded helper proxy at `https://localhost:8443/api/playwright/extract` (nginx forwards to the helper container)
+- Playwright helper direct endpoint at `http://localhost:3050`
 
 By default you are expected to run Ollama separately on the host (for example, `ollama serve` listening on `http://localhost:11434`). Adjust the UI’s “Ollama Server” field accordingly.
 
@@ -67,7 +68,7 @@ docker compose -f docker/docker-compose.yml down
 
 ## Updating the UI instructions
 
-If you move this folder or change ports, update the guidance text embedded in `web_content_extractor.html` so the on-screen setup instructions stay accurate.
+If you move this folder or change ports, update both `docker/nginx.conf` and the guidance text embedded in `web_content_extractor.html` so the on-screen setup instructions stay accurate.
 
 ## Troubleshooting Ollama & CORS
 
