@@ -157,6 +157,13 @@ web-content-extractor/
 - Playwright downloads sizable browser binaries. Keep them cached locally; `.gitignore` already excludes `node_modules/` and Playwright artifacts.
 - Logs from the helper make troubleshooting straightforward—watch for navigation timeouts or Chromium launch failures if extractions stall.
 
+## Testing
+
+- `npm test` — runs the Node-based regression suite under `tests/ollama-regression.test.js`. The harness boots the UI inside jsdom, stubs Ollama endpoints, and asserts:
+  1. Tool execution works when multiple LLM models request browser renders.
+  2. Multiple LLM models can respond directly when no tools are required.
+- The tests run without hitting live services; no additional setup is required beyond `npm install`.
+
 ## License
 
 MIT License (`LICENSE`) © 2025 Jansen Tang.
